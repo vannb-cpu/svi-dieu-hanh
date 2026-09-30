@@ -139,6 +139,12 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px;}
 <script>
 /* ====== CẤU HÌNH: dán URL /exec của Apps Script vào giữa hai dấu nháy ====== */
 var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9MPuNQOHRUJsB85-iuNYuqtkQp7ZZ5waQ6WFuBwnKaoPA/exec';
+/* Danh sách tên có sẵn để ô chọn tên không bao giờ trống. Khi Apps Script trả danh sách mới thì dùng danh sách đó */
+var DEFAULT_STAFF = {'Tạp vụ':['Phạm Thị Óng','Hoàng Thị Thúy','Nguyễn Thị Hường','Nguyễn Thị Oanh'],
+  'Bảo vệ':['Nguyễn Văn Phi','Phan Văn Điến','Bùi Quang Thược','Nguyễn Mạnh Hùng','Nguyễn Viết Huy','Phạm Minh Tuấn'],
+  'Kỹ thuật':['Lê Tiến Đại']};
+/* Cấu hình form điền sẵn để nhân viên vào là báo cáo được ngay, không đợi tải số liệu (khớp với CFG trong Code.gs) */
+var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ thống điện"],["nuoc","Hệ thống nước"],["pccc","Hệ thống PCCC"],["thangmay","Thang máy"],["camera","Camera / an ninh"]],"vsItems":["Quét, lau sàn hành lang","Lau cửa kính, tay nắm","Vệ sinh WC nam","Vệ sinh WC nữ","Bổ sung giấy, xà phòng WC","Đổ rác, thay túi rác","Lau thang máy","Lau cầu thang bộ","Lau bàn ghế khu chung","Kiểm tra mùi, xịt thơm"],"posts":["Hầm","Sảnh","Sân","Bốt"],"bvItems":["Nhận ca, chấm công","Máy quẹt thẻ, thiết bị","Kiểm soát người và phương tiện","Sắp xếp xe máy, dọn lối đi","Kiểm tra camera, gương","Tuần tra các tầng","Kiểm tra điện, nước","An ninh, tài sản","Bàn giao thẻ, thiết bị"],"bvItemsSan":["Kiểm tra bể nước","Kiểm tra, sắp xếp xe","Kiểm tra hầm B1/B2","Điều phối ô tô ra vào","Giữ trật tự sảnh","Giám sát thang máy chuyển đồ","Cuối ca: dồn xe ô tô"],"floors":["Tầng 1L","Tầng 6","Tầng 6A","Tầng 7","Tầng 8","Tầng 9","Tầng 10","Tầng 11","Tầng 12","Tầng 12A","Tầng 14","Tầng 15","Tầng 16","Tầng 17","Tầng 18","Tầng 19","Tầng 19A"]};
 /* ======================================================================================= */
 
 (function(){
@@ -189,14 +195,14 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
       store('svi_cache',JSON.stringify({role:S.role,data:r.data})); render(); })
       .catch(function(){ S.loading=false; loadingBar(); S.err='Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'; render(); });
   }
-  function loadingBar(){ var b=document.getElementById('lbar'); if(S.loading&&S.data){ if(!b) document.body.appendChild(el('div',{id:'lbar',class:'lbar',role:'status',text:'Đang cập nhật số mới…'})); } else if(b) b.remove(); }
+  function loadingBar(){ var b=document.getElementById('lbar'); if(S.loading&&S.data&&!S.data.skeleton){ if(!b) document.body.appendChild(el('div',{id:'lbar',class:'lbar',role:'status',text:'Đang cập nhật số mới…'})); } else if(b) b.remove(); }
   function logout(){ S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
 
   // ---------- quy tắc ----------
   function incOpen(i){ return i.status!=='Đã đóng'; }
   function incOver(i){ return incOpen(i)&&hrs(i.reportedAt)>D().meta.overdueH; }
   function incLevel(i){ if(!incOpen(i)) return 'ok'; if(incOver(i)||/nghiêm trọng/i.test(i.severity||'')) return 'alert'; return 'watch'; }
-  function staffOf(dept){ var st=S.staffList||(D()&&D().meta.staff)||{}; return st[dept]||[]; }
+  function staffOf(dept){ var st=S.staffList||(D()&&D().meta.staff)||DEFAULT_STAFF; return st[dept]||[]; }
   function norm(x){ return String(x||'').toLowerCase().replace(/\s+/g,' ').trim(); }
   function hhmm(){ var z=new Date(now().getTime()+7*36e5); return z.toISOString().slice(11,16); }
   function leavesOn(id){ return (D().leaves||[]).filter(function(l){ return l.from<=id && l.to>=id; }); }
@@ -439,6 +445,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
   // ---------- TẠP VỤ ----------
   function vClean(){ var day=curDay(), o=top(); o.push(chips()); if(!day) return o;
     if(canVS()&&day.id===todayId()) o.push(vsForm());
+    if(D().skeleton){ o.push(el('p',{class:'small muted',style:'margin-top:12px',text:'Đang tải báo cáo hôm nay…'})); return o; }
     var c=coverage(day).filter(function(x){return x.code==='VS';}); o.push(el('h2',{text:'Báo cáo hết ca ngày '+dmy(day.id)})); o.push(coverCards(c));
     var v=day.vs; o.push(v.length?el('div',{class:'list',style:'margin-top:10px'},v.map(function(r){ var tot=D().meta.vsItems.length, nd=r.notDone||[], dn=tot-nd.length, fd=!blank(r.found);
       return el('article',{class:'card l-'+(fd?'alert':nd.length?'watch':'ok')},[ el('div',{class:'card-top'},[el('h3',{text:r.staff+' – ca '+String(r.shift).toLowerCase()}),el('span',{class:'pill '+(nd.length?'watch':'ok'),text:nd.length?dn+'/'+tot+' việc':'Đã làm đủ'})]),
@@ -453,13 +460,13 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
     return []; }
   function vsForm(){ var staff=staffOf('Tạp vụ'), items=D().meta.vsItems;
     if(!S.vs){ var nm=S.role==='vs'?S.name:(staff.indexOf(S.name)>=0?S.name:''); S.vs={staff:nm,shift:hhmm()<'13:00'?'Sáng':'Chiều',notDone:[],reason:'',supplies:'',found:'',foundArea:''}; }
-    var f=S.vs; if(f.floorsFor!==f.staff){ f.floors=lastFloors(f.staff); f.floorsFor=f.staff; }
+    var f=S.vs; if(f.floorsFor!==f.staff||(!f.touched&&!f.floors.length&&!D().skeleton&&f.filledFrom!=='data')){ f.floors=lastFloors(f.staff); f.floorsFor=f.staff; if(!D().skeleton) f.filledFrom='data'; }
     var floors=f.floors.join(', ');
     var sel=bind(f,'staff',el('select',null,[el('option',{value:'',text:'– Chọn tên –'})].concat(staff.map(function(x){return el('option',{value:x,text:x});}))));
     sel.addEventListener('change',function(){render();});
     var shift=el('div',{class:'seg',role:'group','aria-label':'Ca'},['Sáng','Chiều'].map(function(x){ return el('button',{type:'button',class:'ok','aria-pressed':String(f.shift===x),onclick:function(){f.shift=x;render();}},['Ca '+x.toLowerCase()]); }));
     var fbox=el('div',{class:'seg',role:'group','aria-label':'Tầng phụ trách'},(D().meta.floors||[]).map(function(t){ var on=f.floors.indexOf(t)>=0;
-      return el('button',{type:'button',class:'ok','aria-pressed':String(on),onclick:function(){ var k=f.floors.indexOf(t); if(k>=0) f.floors.splice(k,1); else f.floors.push(t); var F=D().meta.floors; f.floors.sort(function(a,b){ return F.indexOf(a)-F.indexOf(b); }); render(); }},[t.replace('Tầng ','')]); }));
+      return el('button',{type:'button',class:'ok','aria-pressed':String(on),onclick:function(){ f.touched=true; var k=f.floors.indexOf(t); if(k>=0) f.floors.splice(k,1); else f.floors.push(t); var F=D().meta.floors; f.floors.sort(function(a,b){ return F.indexOf(a)-F.indexOf(b); }); render(); }},[t.replace('Tầng ','')]); }));
     var list=el('div',{class:'checks'},items.map(function(it){ var cb=el('input',{type:'checkbox'}); cb.checked=f.notDone.indexOf(it)<0;
       cb.addEventListener('change',function(){ var k=f.notDone.indexOf(it); if(!cb.checked&&k<0) f.notDone.push(it); if(cb.checked&&k>=0) f.notDone.splice(k,1); render(); });
       return el('label',null,[cb,it]); }));
@@ -562,7 +569,6 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
   // Nhân viên: bấm vào tên mình là vào, máy tự nhớ. Chỉ lãnh đạo cần mã PIN.
   function vLogin(){ if(!S.lg) S.lg={pin:'',name:''}; var st=S.lg, err=S.formErr, kids=[];
     kids.push(el('h3',{text:'Chọn tên của mình'}));
-    if(!S.staffList) kids.push(el('p',{class:'small muted',text:'Đang tải danh sách tên…'}));
     var pick=el('select',{'aria-label':'Họ tên'},[el('option',{value:'',text:'– Chọn tên –'})].concat(['Tạp vụ','Bảo vệ','Kỹ thuật'].map(function(g){
       return el('optgroup',{label:g},staffOf(g).map(function(n){ return el('option',{value:n,text:n}); })); })));
     pick.value=st.name||''; pick.addEventListener('change',function(){ st.name=pick.value; });
@@ -575,7 +581,13 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
       pin.value=st.pin; pin.addEventListener('input',function(){ st.pin=pin.value; });
       lead.push(pin); lead.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.pin.trim()){ S.formErr='Nhập mã PIN lãnh đạo.'; render(); return; } doLogin('',st.pin.trim()); }},['Vào xem tổng quát']));
     return [el('div',{class:'login'},[ el('div',{class:'form'},kids), el('div',{class:'form',style:'margin-top:14px'},lead) ])]; }
+  // Khung tạm khi chưa có số liệu: đủ để tạp vụ, bảo vệ điền báo cáo ngay
+  function skeleton(){ var M=Object.assign({staff:S.staffList||DEFAULT_STAFF, expected:{vs:[]}, deadline:{}, offRules:{}, leaveQuota:{}, overdueH:48, startDate:'9999'}, DEFAULT_META);
+    return {days:[{id:todayId(),kt:null,ca:[],vs:[]}], incidents:[], leaves:[], attendance:[], meta:M, skeleton:true}; }
   function doLogin(name,pin){ S.busy=true; S.formErr=null; S.name=name; S.pin=pin; render();
+    var role0=null; ['Tạp vụ','Bảo vệ'].forEach(function(g){ if(staffOf(g).some(function(x){return norm(x)===norm(name);})) role0=g==='Tạp vụ'?'vs':'bv'; });
+    if(name&&role0){   // tạp vụ, bảo vệ: vào ngay, Apps Script vẫn kiểm tra tên khi gửi
+      S.busy=false; S.role=role0; S.lg=null; store('svi_name',name); S.tab=tabsOf()[0][0]; S.data=skeleton(); S.day=S.data.days[0].id; render(); refresh(); return; }
     api('summary').then(function(r){ S.busy=false;
       if(!r.ok){ S.name=''; S.pin=''; S.formErr=r.error||'Chưa vào được'; render(); return; }
       S.role=r.role; S.lg=null;
@@ -604,7 +616,10 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwOuuPGuXQ-uSP-lF_f60S5F9
   else if(load('svi_name')) doLogin(load('svi_name'),'');
   else render();
   // Bản thật: lấy danh sách tên mới nhất từ Apps Script cho màn hình chọn tên
-  api('names').then(function(r){ if(r.ok){ S.staffList=r.staff; if(!S.role) render(); } }).catch(function(){});
+  (function getNames(n){ api('names').then(function(r){ if(!r.ok) return;
+      var changed=JSON.stringify(r.staff)!==JSON.stringify(DEFAULT_STAFF); S.staffList=r.staff;
+      if(changed&&!S.role&&!(S.lg&&S.lg.name)) render(); })
+    .catch(function(){ if(n<3) setTimeout(function(){ getNames(n+1); }, 2000*n); }); })(1);
 })();
 </script>
 </body>
