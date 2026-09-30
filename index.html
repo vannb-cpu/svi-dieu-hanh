@@ -110,6 +110,8 @@ input[type=text],input[type=password],select,textarea{width:100%;font-size:16px;
 textarea{min-height:70px;resize:vertical;}
 .seg{display:flex;gap:4px;flex-wrap:wrap;}
 .seg button{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;min-height:36px;}
+.seg.big button{min-height:48px;font-size:15px;padding:8px 14px;}
+.btn.warn{background:var(--watch-bg);border-color:var(--watch);color:var(--watch);font-weight:600;}
 .seg button[aria-pressed="true"].ok{background:var(--ok);border-color:var(--ok);color:#fff;}
 .seg button[aria-pressed="true"].watch{background:var(--watch);border-color:var(--watch);color:#fff;}
 .seg button[aria-pressed="true"].alert{background:var(--alert);border-color:var(--alert);color:#fff;}
@@ -265,7 +267,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(day.kt){ var bad=SYS().filter(function(s){return lv(day.kt.systems[s[0]])!=='ok';});
       if(bad.length) it.push({l:'alert',t:bad.length+' hệ thống không bình thường',d:bad.map(function(s){return s[1]+': '+(day.kt.systems[s[0]]||'chưa có');}).join('; '),go:'kythuat'}); }
     var f=[]; day.ca.forEach(function(r){ (r.fails||[]).forEach(function(x){ f.push(r.post+' ca '+r.shift.toLowerCase()+': '+x.item); }); });
-    if(f.length) it.push({l:'alert',t:f.length+' hạng mục ca trực có vấn đề',d:f.join('; '),go:'baove'});
+    if(f.length) it.push({l:'alert',t:f.length+' ca trực có việc cần báo',d:f.join('; '),go:'baove'});
     var pm=[]; day.ca.forEach(function(r){ if(r.shift==='Đêm'&&r.patrol){ var m=PATROL.filter(function(p){return r.patrol.indexOf(p)<0;}); if(m.length) pm.push(r.post+' thiếu mốc '+m.join(', ')); } });
     if(pm.length) it.push({l:'alert',t:'Tuần tra ca đêm chưa đủ mốc',d:pm.join('; '),go:'baove'});
     var pe=day.ca.filter(function(r){return !blank(r.handover);});
@@ -515,7 +517,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function caCard(r){ var fl=r.fails||[], pm=r.shift==='Đêm'&&r.patrol?PATROL.filter(function(p){return r.patrol.indexOf(p)<0;}):[], ho=!blank(r.handover);
     var l=fl.length||pm.length?'alert':(ho||!blank(r.events)?'watch':'ok');
     var recv=r.source!=='Trang'?null:(r.receivedBy?el('p',{class:'small',style:'color:var(--ok)',text:'Đã nhận ca: '+r.receivedBy+(r.receivedAt?' lúc '+new Date(r.receivedAt).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}):'')+(r.receiveNote?'. '+r.receiveNote:'')}):el('p',{class:'small',style:'color:var(--alert)',text:'Chưa ai bấm nhận ca'}));
-    return el('article',{class:'card l-'+l},[ el('div',{class:'card-top'},[ el('h3',{text:r.post+' – ca '+r.shift.toLowerCase()}), el('span',{class:'pill '+(l==='ok'?'ok':l),text:fl.length?fl.length+' việc có vấn đề':pm.length?'Thiếu mốc tuần tra':'Đạt đủ'}) ]),
+    return el('article',{class:'card l-'+l},[ el('div',{class:'card-top'},[ el('h3',{text:r.post+' – ca '+r.shift.toLowerCase()}), el('span',{class:'pill '+(l==='ok'?'ok':l),text:fl.length?'Có việc cần báo':pm.length?'Thiếu mốc tuần tra':'Bình thường'}) ]),
       el('div',{class:'meta',text:[r.staff,r.time,r.source&&r.source!=='Trang'?'form cũ '+r.source:''].filter(Boolean).join(' – ')}),
       fl.length?el('div',null,fl.map(function(x){ return el('p',null,[el('b',{text:x.item+': '}),x.note||'']); })):null,
       r.shift==='Đêm'&&r.patrol?el('div',{class:'patrol'},PATROL.map(function(p){ var y=r.patrol.indexOf(p)>=0; return el('span',{class:'pt '+(y?'y':'n'),title:y?'Đã tuần tra':'Không tuần tra',text:p}); })):null,
@@ -534,38 +536,40 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function receive(r){ S.busy=true; render();
     api('bv_receive',{id:r.id,note:S.rcv.note,by:S.name}).then(function(x){ S.busy=false; if(!x.ok){ toast(x.error||'Chưa lưu được'); render(); return; } S.rcv=null; toast('Đã nhận ca'); return refresh(); }).catch(netErr); }
   function bvItemsFor(post,shift){ var M=D().meta, C=M.bvChecklist||{}; return C[post+'|'+shift]||(post==='Sân'?M.bvItemsSan:M.bvItems); }
-  function bvForm(){ var M=D().meta;
-    if(!S.bv){ S.bv={shift:(hhmm()>='06:00'&&hhmm()<'18:00')?'Ngày':'Đêm', fails:{}, patrol:PATROL.slice(), assetsOk:true, assets:'', events:'', needTech:false, handover:'', lift:''}; }
-    var f=S.bv, items=bvItemsFor(S.post,f.shift);
-    Object.keys(f.fails).forEach(function(k){ if(items.indexOf(k)<0) delete f.fails[k]; });   // đổi ca thì bỏ ghi chú của việc không còn trong danh sách
-    var shift=el('div',{class:'seg',role:'group','aria-label':'Ca'},['Ngày','Đêm'].map(function(x){ return el('button',{type:'button',class:'ok','aria-pressed':String(f.shift===x),onclick:function(){f.shift=x;render();}},['Ca '+x.toLowerCase()]); }));
-    var list=el('div',{class:'checks'},items.map(function(it){ var bad=f.fails[it]!=null, cb=el('input',{type:'checkbox'}); cb.checked=!bad;
-      cb.addEventListener('change',function(){ if(cb.checked) delete f.fails[it]; else f.fails[it]=''; render(); });
-      var row=[el('label',null,[cb,it])];
-      if(bad){ var n=el('input',{type:'text','aria-label':'Vấn đề của '+it,placeholder:'Có vấn đề gì? (bắt buộc)'}); n.value=f.fails[it]; n.addEventListener('input',function(){ f.fails[it]=n.value; }); row.push(n); }
-      return el('div',null,row); }));
-    var kids=[ el('h3',{text:'Báo cáo cuối ca – '+S.post}), el('div',null,[el('span',{class:'fl',text:'Ca'}),shift]),
-      el('div',null,[el('span',{class:'fl',text:'Việc đã làm đạt (bỏ tích việc có vấn đề)'}),list]) ];
-    if(f.shift==='Đêm') kids.push(el('div',null,[ el('span',{class:'fl',text:'Mốc tuần tra đã đi (bỏ chọn mốc không đi)'}), el('div',{class:'seg',role:'group','aria-label':'Mốc tuần tra'},PATROL.map(function(p){ var on=f.patrol.indexOf(p)>=0;
+  // Báo cáo cuối ca: mặc định bình thường, chỉ báo khi có chuyện
+  var BV_CATS=['Thẻ xe','Xe, ô tô','Tài sản thiếu','Hỏng hóc','Khác'];
+  function bvForm(){
+    if(!S.bv){ S.bv={shift:(hhmm()>='06:00'&&hhmm()<'18:00')?'Ngày':'Đêm', patrol:PATROL.slice(), issue:false, cats:[], note:'', handover:''}; }
+    var f=S.bv;
+    var shift=el('div',{class:'seg big',role:'group','aria-label':'Ca'},['Ngày','Đêm'].map(function(x){ return el('button',{type:'button',class:'ok','aria-pressed':String(f.shift===x),onclick:function(){f.shift=x;render();}},['Ca '+x.toLowerCase()]); }));
+    var kids=[ el('h3',{text:'Báo cáo cuối ca – '+S.post}), shift ];
+    if(f.shift==='Đêm') kids.push(el('div',null,[ el('span',{class:'fl',text:'Mốc tuần tra (bỏ chọn mốc không đi)'}), el('div',{class:'seg big',role:'group','aria-label':'Mốc tuần tra'},PATROL.map(function(p){ var on=f.patrol.indexOf(p)>=0;
       return el('button',{type:'button',class:'ok','aria-pressed':String(on),onclick:function(){ var k=f.patrol.indexOf(p); if(k>=0) f.patrol.splice(k,1); else f.patrol.push(p); f.patrol.sort(function(a,b){return PATROL.indexOf(a)-PATROL.indexOf(b);}); render(); }},[p]); })) ]));
-    var ac=el('input',{type:'checkbox'}); ac.checked=f.assetsOk; ac.addEventListener('change',function(){ f.assetsOk=ac.checked; render(); });
-    kids.push(el('div',{class:'checks'},[el('label',null,[ac,'Tài sản, thẻ, chìa khóa bàn giao đầy đủ'])]));
-    if(!f.assetsOk) kids.push(bind(f,'assets',el('input',{type:'text','aria-label':'Thiếu tài sản gì',placeholder:'Thiếu gì? (bắt buộc)'})));
-    if(S.post==='Sân') kids.push(field('Số lượt thang máy chuyển đồ (nếu có)',bind(f,'lift',el('input',{type:'text',inputmode:'numeric'}))));
-    kids.push(field('Sự việc phát sinh trong ca (nếu có)',bind(f,'events',el('textarea',{placeholder:'Để trống nếu bình thường'}))));
-    var nt=el('input',{type:'checkbox'}); nt.checked=f.needTech; nt.addEventListener('change',function(){ f.needTech=nt.checked; });
-    kids.push(el('div',{class:'checks'},[el('label',null,[nt,'Sự việc này cần kỹ thuật xử lý (chuyển thành sự cố)'])]));
-    kids.push(field('Bàn giao cho ca sau (người nhận ca sẽ thấy)',bind(f,'handover',el('textarea',{placeholder:'VD: chờ kỹ thuật thay bóng đèn hầm B2; khách để xe qua đêm'}))));
+    if(f.issue){
+      kids.push(el('div',null,[ el('span',{class:'fl',text:'Có việc gì? (bấm chọn)'}), el('div',{class:'seg big',role:'group','aria-label':'Loại việc'},BV_CATS.map(function(c){ var on=f.cats.indexOf(c)>=0;
+        return el('button',{type:'button',class:'watch','aria-pressed':String(on),onclick:function(){ var k=f.cats.indexOf(c); if(k>=0) f.cats.splice(k,1); else f.cats.push(c); render(); }},[c]); })) ]));
+      kids.push(bind(f,'note',el('input',{type:'text','aria-label':'Ghi ngắn',placeholder:'Ghi ngắn: việc gì, ở đâu'})));
+      if(f.cats.indexOf('Hỏng hóc')>=0) kids.push(el('p',{class:'small muted',text:'Hỏng hóc sẽ tự chuyển cho kỹ thuật.'}));
+    }
+    kids.push(field('Bàn giao ca sau (nếu có)',bind(f,'handover',el('input',{type:'text',placeholder:'VD: khách để xe qua đêm'}))));
     if(S.formErr&&!S.editing&&!S.newInc) kids.push(el('p',{class:'err',text:S.formErr}));
-    kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(items); }},[S.busy?'Đang gửi…':'Gửi báo cáo ca']));
+    if(!f.issue){
+      kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(false); }},[S.busy?'Đang gửi…':'Ca bình thường – Gửi']));
+      kids.push(el('button',{class:'btn warn big',type:'button',disabled:S.busy,onclick:function(){ f.issue=true; S.formErr=null; render(); }},['Có việc cần báo']));
+    } else {
+      kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(true); }},[S.busy?'Đang gửi…':'Gửi báo cáo']));
+      kids.push(el('button',{class:'btn',type:'button',onclick:function(){ f.issue=false; f.cats=[]; f.note=''; S.formErr=null; render(); }},['Quay lại']));
+    }
     return el('div',{class:'form'},kids); }
-  function saveBV(items){ var f=S.bv, fails=Object.keys(f.fails).map(function(k){ return {item:k,note:String(f.fails[k]).trim()}; });
-    if(fails.some(function(x){return !x.note;})){ S.formErr='Việc có vấn đề thì phải ghi rõ vấn đề gì.'; render(); return; }
-    if(!f.assetsOk&&!String(f.assets).trim()){ S.formErr='Ghi rõ thiếu tài sản gì.'; render(); return; }
-    if(f.needTech&&!String(f.events).trim()){ S.formErr='Cần kỹ thuật xử lý thì ghi rõ sự việc.'; render(); return; }
+  function saveBV(issue){ var f=S.bv, note=String(f.note||'').trim();
+    if(issue&&!f.cats.length){ S.formErr='Bấm chọn có việc gì.'; render(); return; }
+    if(issue&&!note){ S.formErr='Ghi ngắn việc gì, ở đâu.'; render(); return; }
+    var has=function(c){ return issue&&f.cats.indexOf(c)>=0; };
     S.busy=true; S.formErr=null; render();
-    api('bv_report',{post:S.post,shift:f.shift,staff:S.name,fails:fails,total:items.length,patrol:f.shift==='Đêm'?f.patrol:null,assets:f.assetsOk?'Đầy đủ':f.assets,events:f.events,needTech:f.needTech,handover:f.handover,lift:f.lift}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
-      S.bv=null; toast(r.code?'Đã gửi. Sự việc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo ca'); return refresh(); }).catch(netErr); }
+    api('bv_report',{post:S.post,shift:f.shift,staff:S.name,fails:issue?[{item:f.cats.join(', '),note:note}]:[],patrol:f.shift==='Đêm'?f.patrol:null,
+      assets:has('Tài sản thiếu')?note:'Đầy đủ',events:issue?note:'',needTech:has('Hỏng hóc'),handover:f.handover,lift:''}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
+      S.bv=null; toast(r.code?'Đã gửi. Hỏng hóc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo ca'); return refresh(); }).catch(netErr); }
+
 
   // ---------- VÀO TRANG ----------
   // Nhân viên: bấm vào tên mình là vào, máy tự nhớ. Chỉ lãnh đạo cần mã PIN.
