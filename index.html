@@ -544,7 +544,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(S.formErr&&!S.editing&&!S.newInc) kids.push(el('p',{class:'err',text:S.formErr}));
     if(!f.issue){
       kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(false); }},[S.busy?'Đang gửi…':'Ca bình thường – Gửi']));
-      kids.push(el('button',{class:'btn warn big',type:'button',disabled:S.busy,onclick:function(){ f.issue=true; S.formErr=null; render(); }},['Có việc cần báo']));
+      kids.push(el('button',{class:'btn warn big',type:'button',disabled:S.busy,onclick:function(){ f.issue=true; S.formErr=null; render(); }},['Sự việc, sự cố trong ca']));
     } else {
       kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(true); }},[S.busy?'Đang gửi…':'Gửi báo cáo']));
       kids.push(el('button',{class:'btn',type:'button',onclick:function(){ f.issue=false; f.cats=[]; f.note=''; S.formErr=null; render(); }},['Quay lại']));
