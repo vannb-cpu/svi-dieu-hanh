@@ -146,7 +146,7 @@ var DEFAULT_STAFF = {'Tạp vụ':['Phạm Thị Óng','Hoàng Thị Thúy','Ngu
   'Bảo vệ':['Nguyễn Văn Phi','Phan Văn Điến','Bùi Quang Thược','Nguyễn Mạnh Hùng','Nguyễn Viết Huy','Phạm Minh Tuấn'],
   'Kỹ thuật':['Lê Tiến Đại']};
 /* Cấu hình form điền sẵn để nhân viên vào là báo cáo được ngay, không đợi tải số liệu (khớp với CFG trong Code.gs) */
-var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ thống điện"],["nuoc","Hệ thống nước"],["pccc","Hệ thống PCCC"],["thangmay","Thang máy"],["camera","Camera / an ninh"]],"vsItems":["Quét, lau sàn hành lang","Lau cửa kính, tay nắm","Vệ sinh WC nam","Vệ sinh WC nữ","Bổ sung giấy, xà phòng WC","Đổ rác, thay túi rác","Lau thang máy","Lau cầu thang bộ","Lau bàn ghế khu chung","Kiểm tra mùi, xịt thơm"],"posts":["Hầm","Sảnh","Sân","Bốt"],"bvItems":["Nhận ca, chấm công","Máy quẹt thẻ, thiết bị","Kiểm soát người và phương tiện","Sắp xếp xe máy, dọn lối đi","Kiểm tra camera, gương","Tuần tra các tầng","Kiểm tra điện, nước","An ninh, tài sản","Bàn giao thẻ, thiết bị"],"bvChecklist":{"Bốt|Ngày":["Nhận ca, chấm công, nhận bàn giao ca đêm","Kiểm tra máy quẹt thẻ, thiết bị tại bốt","Kiểm đếm thẻ xe tháng, thẻ xe lượt, thẻ Highlands, thẻ Tiny và ghi sổ","Kiểm soát quẹt thẻ, đối chiếu đúng loại thẻ khi ra vào","Kiểm soát khách cà phê: thu Bill khi ra, phân loại Bill Highlands / Tiny","Phối hợp nhân viên hầm điều phối ô tô qua bộ đàm","Ghi nhận thẻ dùng sai quy định, khách không có Bill","Bàn giao thẻ, sổ theo dõi, Bill đã thu cho ca đêm"],"Bốt|Đêm":["Nhận ca, chấm công, nhận bàn giao ca ngày","Kiểm tra máy móc, thiết bị, thẻ ra vào, thẻ xe","Kiểm soát người, phương tiện và thẻ xe ra vào","Bao quát sân, sảnh, lối xuống hầm, khu để xe","Tuần tra tầng hầm 00h–01h: ô tô qua đêm, xe máy, cửa phòng bơm, điện nước PCCC","Tuần tra các tầng 01h–01h30: cửa tầng, lối thoát hiểm, hành lang, WC, bình chữa cháy","Luôn có người trực bốt khi người kia đi tuần","Bàn giao ca cho ca ngày"]},"bvItemsSan":["Kiểm tra bể nước","Kiểm tra, sắp xếp xe","Kiểm tra hầm B1/B2","Điều phối ô tô ra vào","Giữ trật tự sảnh","Giám sát thang máy chuyển đồ","Cuối ca: dồn xe ô tô"],"floors":["Tầng 1L","Tầng 6","Tầng 6A","Tầng 7","Tầng 8","Tầng 9","Tầng 10","Tầng 11","Tầng 12","Tầng 12A","Tầng 14","Tầng 15","Tầng 16","Tầng 17","Tầng 18","Tầng 19","Tầng 19A"]};
+var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ thống điện"],["nuoc","Hệ thống nước"],["pccc","Hệ thống PCCC"],["thangmay","Thang máy"],["camera","Camera / an ninh"]],"vsItems":["Quét, lau sàn hành lang","Lau cửa kính, tay nắm","Vệ sinh WC nam","Vệ sinh WC nữ","Bổ sung giấy, xà phòng WC","Đổ rác, thay túi rác","Lau thang máy","Lau bàn ghế khu chung"],"posts":["Hầm","Sảnh","Sân","Bốt"],"bvItems":["Nhận ca, chấm công","Máy quẹt thẻ, thiết bị","Kiểm soát người và phương tiện","Sắp xếp xe máy, dọn lối đi","Kiểm tra camera, gương","Tuần tra các tầng","Kiểm tra điện, nước","An ninh, tài sản","Bàn giao thẻ, thiết bị"],"bvChecklist":{"Bốt|Ngày":["Nhận ca, chấm công, nhận bàn giao ca đêm","Kiểm tra máy quẹt thẻ, thiết bị tại bốt","Kiểm đếm thẻ xe tháng, thẻ xe lượt, thẻ Highlands, thẻ Tiny và ghi sổ","Kiểm soát quẹt thẻ, đối chiếu đúng loại thẻ khi ra vào","Kiểm soát khách cà phê: thu Bill khi ra, phân loại Bill Highlands / Tiny","Phối hợp nhân viên hầm điều phối ô tô qua bộ đàm","Ghi nhận thẻ dùng sai quy định, khách không có Bill","Bàn giao thẻ, sổ theo dõi, Bill đã thu cho ca đêm"],"Bốt|Đêm":["Nhận ca, chấm công, nhận bàn giao ca ngày","Kiểm tra máy móc, thiết bị, thẻ ra vào, thẻ xe","Kiểm soát người, phương tiện và thẻ xe ra vào","Bao quát sân, sảnh, lối xuống hầm, khu để xe","Tuần tra tầng hầm 00h–01h: ô tô qua đêm, xe máy, cửa phòng bơm, điện nước PCCC","Tuần tra các tầng 01h–01h30: cửa tầng, lối thoát hiểm, hành lang, WC, bình chữa cháy","Luôn có người trực bốt khi người kia đi tuần","Bàn giao ca cho ca ngày"]},"bvItemsSan":["Kiểm tra bể nước","Kiểm tra, sắp xếp xe","Kiểm tra hầm B1/B2","Điều phối ô tô ra vào","Giữ trật tự sảnh","Giám sát thang máy chuyển đồ","Cuối ca: dồn xe ô tô"],"floors":["Tầng 1L","Tầng 6","Tầng 6A","Tầng 7","Tầng 8","Tầng 9","Tầng 10","Tầng 11","Tầng 12","Tầng 12A","Tầng 14","Tầng 15","Tầng 16","Tầng 17","Tầng 18","Tầng 19","Tầng 19A"]};
 /* ======================================================================================= */
 
 (function(){
@@ -189,16 +189,16 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   }
   // Đọc số liệu mới. Trong lúc chờ vẫn giữ nguyên số đang hiện (không xóa trắng màn hình)
   function refresh(){
-    S.loading=true; loadingBar();
-    return api('summary').then(function(r){ S.loading=false; loadingBar();
+    S.loading=true; loadingBar(); var sess=S.sess;
+    return api('summary').then(function(r){ if(sess!==S.sess) return; S.loading=false; loadingBar();
       if(!r.ok){ if(/PIN|danh sách/.test(r.error||'')){ logout(); return; } S.err=r.error; render(); return; }
       if(r.role) S.role=r.role;
       S.data=r.data; S.err=null; if(!S.day||!S.data.days.some(function(d){return d.id===S.day;})) S.day=S.data.days[0]&&S.data.days[0].id;
       store('svi_cache',JSON.stringify({role:S.role,data:r.data})); render(); })
-      .catch(function(){ S.loading=false; loadingBar(); S.err='Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'; render(); });
+      .catch(function(){ if(sess!==S.sess) return; S.loading=false; loadingBar(); S.err='Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'; render(); });
   }
   function loadingBar(){ var b=document.getElementById('lbar'); if(S.loading&&S.data&&!S.data.skeleton){ if(!b) document.body.appendChild(el('div',{id:'lbar',class:'lbar',role:'status',text:'Đang cập nhật số mới…'})); } else if(b) b.remove(); }
-  function logout(){ S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
+  function logout(){ S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
 
   // ---------- quy tắc ----------
   function incOpen(i){ return i.status!=='Đã đóng'; }
@@ -348,7 +348,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(past.length){ o.push(el('h2',{text:'Đã qua'})); o.push(leaveCards(past)); }
     var A=attendance(), mon=todayId().slice(5,7)+'/'+todayId().slice(0,4), R=D().meta.offRules||{};
     o.push(el('h2',{text:'Ngày nghỉ tháng '+mon}));
-    o.push(el('p',{class:'small muted',style:'margin-bottom:8px',text:'Tính đến hết hôm qua. Chỉ nghỉ luân phiên mới trừ vào số ngày được nghỉ; nghỉ phép tính riêng. "Ngày không nộp báo cáo" là ngày làm việc mà không thấy báo cáo, thường do quên nộp. Nếu hôm đó người ấy nghỉ thì ghi bù lịch nghỉ, số tự sửa.'}));
+    o.push(el('p',{class:'small muted',style:'margin-bottom:8px',text:'Ngày nghỉ: tính cả hôm nay và các ngày đã ghi trước trong tháng. Ngày không nộp báo cáo: tính đến hết hôm qua. Chỉ nghỉ luân phiên mới trừ vào số ngày được nghỉ; nghỉ phép tính riêng. "Ngày không nộp báo cáo" là ngày làm việc mà không thấy báo cáo, thường do quên nộp. Nếu hôm đó người ấy nghỉ thì ghi bù lịch nghỉ, số tự sửa.'}));
     function fixedTxt(a){ var wd=[]; ((R.dept||{})[a.dept]||[]).forEach(function(x){wd.push(x);}); var P=R.person||{}; for(var k in P){ if(norm(k)===norm(a.name)) P[k].forEach(function(x){wd.push(x);}); }
       return wd.length?'Nghỉ cố định '+wd.map(function(x){return THU[x];}).join(', '):''; }
     o.push(el('div',{class:'grid-wrap'},[el('table',{class:'mx att'},[
@@ -584,7 +584,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     var role0=null; ['Tạp vụ','Bảo vệ'].forEach(function(g){ if(staffOf(g).some(function(x){return norm(x)===norm(name);})) role0=g==='Tạp vụ'?'vs':'bv'; });
     if(name&&role0){   // tạp vụ, bảo vệ: vào ngay, Apps Script vẫn kiểm tra tên khi gửi
       S.busy=false; S.role=role0; S.lg=null; store('svi_name',name); S.tab=tabsOf()[0][0]; S.data=skeleton(); S.day=S.data.days[0].id; render(); refresh(); return; }
-    api('summary').then(function(r){ S.busy=false;
+    var sess=S.sess; api('summary').then(function(r){ if(sess!==S.sess) return; S.busy=false;
       if(!r.ok){ S.name=''; S.pin=''; S.formErr=r.error||'Chưa vào được'; render(); return; }
       S.role=r.role; S.lg=null;
       if(r.role==='xem'){ S.name=''; store('svi_pin',pin); } else store('svi_name',name);
