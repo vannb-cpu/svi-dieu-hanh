@@ -201,7 +201,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function logout(){ S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
 
   // ---------- quy tắc ----------
-  function incOpen(i){ return i.status!=='Đã đóng'; }
+  function stNorm(s){ s=String(s||'').trim(); return s==='Đã đóng'?'Đã xử lý xong':(!s||s==='Mới')?'Mới báo':s; }
+  function incOpen(i){ return stNorm(i.status)!=='Đã xử lý xong'; }
   function incOver(i){ return incOpen(i)&&hrs(i.reportedAt)>D().meta.overdueH; }
   function incLevel(i){ if(!incOpen(i)) return 'ok'; if(incOver(i)||/nghiêm trọng/i.test(i.severity||'')) return 'alert'; return 'watch'; }
   function staffOf(dept){ var st=S.staffList||(D()&&D().meta.staff)||DEFAULT_STAFF; return st[dept]||[]; }
@@ -255,8 +256,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     return out; }
   function todos(day){
     var it=[], inc=D().incidents, open=inc.filter(incOpen), over=open.filter(incOver), fresh=open.filter(function(i){return !incOver(i);});
-    if(over.length) it.push({l:'alert',t:over.length+' sự cố mở quá '+D().meta.overdueH+' giờ',d:over.map(function(i){return i.area;}).join('; '),go:'suco'});
-    if(fresh.length) it.push({l:'watch',t:fresh.length+' sự cố đang mở',d:fresh.map(function(i){return i.area;}).join('; '),go:'suco'});
+    if(over.length) it.push({l:'alert',t:over.length+' sự cố tồn quá '+Math.round(D().meta.overdueH/24)+' ngày',d:over.map(function(i){return i.area;}).join('; '),go:'suco'});
+    if(fresh.length) it.push({l:'watch',t:fresh.length+' sự cố còn tồn',d:fresh.map(function(i){return i.area;}).join('; '),go:'suco'});
     var yd=D().days[1]&&D().days[1].id; if(yd&&yd<(D().meta.startDate||'')) yd=null;
     var ab=attendance().filter(function(a){ return a.absent.indexOf(yd)>=0; });
     if(yd&&ab.length) it.push({l:'alert',t:'Hôm qua '+ab.length+' người không nộp báo cáo',d:ab.map(function(a){return a.name;}).join(', '),go:S.role==='xem'?'nghi':'tongquan'});
@@ -363,12 +364,12 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // ---------- SỰ CỐ ----------
   function vIncidents(){ var o=top(), all=D().incidents.slice().sort(function(a,b){return String(b.reportedAt).localeCompare(String(a.reportedAt));});
     var nO=all.filter(incOpen).length, nV=all.filter(incOver).length;
-    var F=[['open','Đang mở ('+nO+')'],['over','Quá hạn ('+nV+')'],['done','Đã đóng ('+(all.length-nO)+')'],['all','Tất cả']];
+    var F=[['open','Còn tồn ('+nO+')'],['over','Tồn quá 2 ngày ('+nV+')'],['done','Đã xử lý xong ('+(all.length-nO)+')'],['all','Tất cả']];
     var bar=el('div',{class:'filters',role:'group','aria-label':'Lọc sự cố'},F.map(function(f){ return el('button',{class:'chip',type:'button','aria-pressed':String(S.filter===f[0]),onclick:function(){S.filter=f[0];S.editing=null;render();}},[f[1]]); }));
     o.push(bar);
     if(canReport()){ if(S.newInc) o.push(newIncForm()); else o.push(el('div',{style:'margin-bottom:12px'},[el('button',{class:'btn pri',type:'button',onclick:function(){S.newInc={category:'',area:'',severity:'Bình thường',desc:'',handling:''};S.formErr=null;render();}},['+ Báo sự cố mới'])])); }
     var sh=all.filter(function(i){ return S.filter==='open'?incOpen(i):S.filter==='over'?incOver(i):S.filter==='done'?!incOpen(i):true; });
-    o.push(sh.length?el('div',{class:'list'},sh.map(incCard)):empty(S.filter==='open'?'Không còn sự cố nào đang mở.':'Không có sự cố nào ở mục này.'));
+    o.push(sh.length?el('div',{class:'list'},sh.map(incCard)):empty(S.filter==='open'?'Không còn sự cố nào tồn.':'Không có sự cố nào ở mục này.'));
     return o; }
   function field(label,node){ return el('div',null,[el('label',{text:label}),node]); }
   function bind(obj,key,node){ node.value=obj[key]||''; node.addEventListener('input',function(){obj[key]=node.value;}); node.addEventListener('change',function(){obj[key]=node.value;}); return node; }
@@ -386,28 +387,28 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     api('incident_new',{source:S.role==='kt'?'KT':S.role==='bv'?'BV':'VS',category:f.category,area:f.area,severity:f.severity,desc:f.desc,handling:f.handling,reporter:S.name}).then(function(r){ S.busy=false;
       if(!r.ok){ S.formErr=r.error||'Chưa gửi được'; render(); return; } S.newInc=null; toast('Đã ghi sự cố '+r.code); return refresh(); }).catch(netErr); }
   function netErr(){ S.busy=false; S.formErr='Không kết nối được máy chủ. Thử lại.'; render(); }
-  function incCard(i){ var st=i.status||'Mới', l=incLevel(i), age=Math.floor(hrs(i.reportedAt)), agt=age<24?age+' giờ':Math.floor(age/24)+' ngày';
-    var pills=[el('span',{class:'pill '+(st==='Đã đóng'?'ok':st==='Đang xử lý'?'info':'watch'),text:st})]; if(incOver(i)) pills.push(el('span',{class:'pill alert',text:'Quá hạn '+agt}));
+  function incCard(i){ var st=stNorm(i.status), l=incLevel(i), age=Math.floor(hrs(i.reportedAt)), agt=age<24?age+' giờ':Math.floor(age/24)+' ngày';
+    var pills=[el('span',{class:'pill '+(st==='Đã xử lý xong'?'ok':st==='Đang xử lý'?'info':'watch'),text:st})]; if(incOver(i)) pills.push(el('span',{class:'pill alert',text:'Tồn '+agt}));
     var c=el('article',{class:'card l-'+l},[ el('div',{class:'card-top'},[el('h3',{text:i.area||'Không rõ vị trí'}),el('div',{class:'pills'},pills)]),
       el('div',{class:'meta',text:[i.code,dmy(i.reportedAt),i.source,i.category,i.severity].filter(Boolean).join(' – ')}),
       i.desc?el('p',null,[el('b',{text:'Mô tả: '}),i.desc]):null, !blank(i.handling)?el('p',null,[el('b',{text:'Đã ứng phó: '}),i.handling]):null,
       i.reporter?el('p',{class:'small muted',text:'Người báo: '+i.reporter}):null ]);
-    if(i.updatedAt&&st!=='Mới') c.appendChild(el('p',{class:'hist',text:st+(i.updatedBy?' – '+i.updatedBy:'')+' lúc '+new Date(i.updatedAt).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+(i.closeNote?'. '+i.closeNote:'')}));
+    if(i.updatedAt&&st!=='Mới báo') c.appendChild(el('p',{class:'hist',text:st+(i.updatedBy?' – '+i.updatedBy:'')+' lúc '+new Date(i.updatedAt).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+(i.closeNote?'. '+i.closeNote:'')}));
     if(!canKT()) return c;
-    if(S.editing&&S.editing.code===i.code){ var ta=bind(S.editing,'note',el('textarea',{'aria-label':'Ghi chú',placeholder:S.editing.to==='Đã đóng'?'Đã xử lý thế nào, thay vật tư gì (bắt buộc)':'Đang làm gì, chờ gì'}));
+    if(S.editing&&S.editing.code===i.code){ var ta=bind(S.editing,'note',el('textarea',{'aria-label':'Ghi chú',placeholder:S.editing.to==='Đã xử lý xong'?'Đã xử lý thế nào, thay vật tư gì (bắt buộc)':'Đang làm gì, chờ gì'}));
       c.appendChild(el('div',{style:'margin-top:10px'},[ta])); if(S.formErr) c.appendChild(el('p',{class:'err',style:'margin-top:6px',text:S.formErr}));
-      c.appendChild(el('div',{class:'acts'},[ el('button',{class:'btn pri',type:'button',disabled:S.busy,onclick:function(){saveInc(i);}},[S.busy?'Đang lưu…':(S.editing.to==='Đã đóng'?'Xác nhận đóng':'Lưu')]), el('button',{class:'btn',type:'button',onclick:function(){S.editing=null;S.formErr=null;render();}},['Hủy']) ]));
+      c.appendChild(el('div',{class:'acts'},[ el('button',{class:'btn pri',type:'button',disabled:S.busy,onclick:function(){saveInc(i);}},[S.busy?'Đang lưu…':(S.editing.to==='Đã xử lý xong'?'Xác nhận đã xử lý xong':'Lưu')]), el('button',{class:'btn',type:'button',onclick:function(){S.editing=null;S.formErr=null;render();}},['Hủy']) ]));
       setTimeout(function(){ta.focus();},0);
     } else { var a=[];
-      if(incOpen(i)){ a.push(el('button',{class:'btn pri',type:'button',onclick:function(){S.editing={code:i.code,to:'Đã đóng',note:''};S.formErr=null;render();}},['Đóng sự cố']));
+      if(incOpen(i)){ a.push(el('button',{class:'btn pri',type:'button',onclick:function(){S.editing={code:i.code,to:'Đã xử lý xong',note:''};S.formErr=null;render();}},['Đã xử lý xong']));
         if(st!=='Đang xử lý') a.push(el('button',{class:'btn',type:'button',onclick:function(){S.editing={code:i.code,to:'Đang xử lý',note:''};S.formErr=null;render();}},['Đang xử lý'])); }
-      else a.push(el('button',{class:'btn',type:'button',onclick:function(){S.editing={code:i.code,to:'Mới',note:''};S.formErr=null;render();}},['Mở lại']));
+      else a.push(el('button',{class:'btn',type:'button',onclick:function(){S.editing={code:i.code,to:'Mới báo',note:''};S.formErr=null;render();}},['Chưa xong, xử lý tiếp']));
       c.appendChild(el('div',{class:'acts'},a)); }
     return c; }
-  function saveInc(i){ var e=S.editing; if(e.to==='Đã đóng'&&!String(e.note||'').trim()){ S.formErr='Ghi rõ cách xử lý trước khi đóng.'; render(); return; }
+  function saveInc(i){ var e=S.editing; if(e.to==='Đã xử lý xong'&&!String(e.note||'').trim()){ S.formErr='Ghi rõ đã xử lý thế nào trước khi bấm xác nhận.'; render(); return; }
     S.busy=true; S.formErr=null; render();
     api('incident_update',{code:i.code,status:e.to,note:e.note||'',by:S.name}).then(function(r){ S.busy=false; if(!r.ok){ S.formErr=r.error; render(); return; }
-      S.editing=null; toast(e.to==='Đã đóng'?'Đã đóng '+i.code+', đã ghi vào Sheet trên Drive':'Đã cập nhật '+i.code); return refresh(); }).catch(netErr); }
+      S.editing=null; toast(e.to==='Đã xử lý xong'?'Đã ghi '+i.code+' xử lý xong vào Sheet':'Đã cập nhật '+i.code); return refresh(); }).catch(netErr); }
 
   // ---------- KỸ THUẬT ----------
   function vTech(){ var day=curDay(), o=top(); o.push(chips());
@@ -421,7 +422,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
         o.push(el('div',{class:'list',style:'margin-top:10px'},[el('article',{class:'card'},[ el('div',{class:'meta',text:[k.reporter,k.time].filter(Boolean).join(' – ')}),
           !blank(k.received)?el('p',null,[el('b',{text:'Tiếp nhận: '}),k.received]):null,
           ev.nw.length?el('p',null,[el('b',{text:'Sự cố báo trong ngày: '}),ev.nw.map(function(i){return i.code+' '+i.area;}).join('; ')]):null,
-          ev.cl.length?el('p',null,[el('b',{text:'Đóng trong ngày: '}),ev.cl.map(function(i){return i.code+' '+i.area;}).join('; ')]):null,
+          ev.cl.length?el('p',null,[el('b',{text:'Đã xử lý xong trong ngày: '}),ev.cl.map(function(i){return i.code+' '+i.area;}).join('; ')]):null,
           !blank(k.done)?el('p',null,[el('b',{text:'Công việc đã làm: '}),k.done]):null, !blank(k.needs)?el('p',null,[el('b',{text:'Vật tư cần mua: '}),k.needs]):null ])])); } }
     return o; }
   function incOfDay(id){ var inc=D().incidents; return {nw:inc.filter(function(i){return String(i.reportedAt).slice(0,10)===id;}), cl:inc.filter(function(i){return String(i.closedAt||'').slice(0,10)===id;})}; }
@@ -432,8 +433,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     var needInc=SYS().filter(function(x){ return f.systems[x[0]]==='Bất thường - chưa xử lý'; });
     return el('div',{class:'form'},[ el('h3',{text:day.kt?'Sửa nhật ký hôm nay':'Nhật ký kỹ thuật hôm nay'}),
       el('p',{class:'small muted',text:'Mặc định tất cả Bình thường, chỉ bấm vào hệ thống có lỗi.'})].concat(rows).concat([
-      needInc.length?el('p',{class:'err',text:'Hệ thống chưa xử lý xong nên có một sự cố tương ứng ở mục Sự cố, để theo dõi đến khi đóng.'}):null,
-      el('div',{class:'auto'},[ el('b',{text:'Tự điền từ sổ sự cố: '}), 'báo mới '+ev.nw.length+(ev.nw.length?' ('+ev.nw.map(function(i){return i.code;}).join(', ')+')':'')+', đóng '+ev.cl.length+(ev.cl.length?' ('+ev.cl.map(function(i){return i.code;}).join(', ')+')':'')+'. Không cần gõ lại.' ]),
       field('Công việc đã làm, thiết bị đã sửa',bind(f,'done',el('textarea'))), field('Vật tư cần mua / đề xuất',bind(f,'needs',el('input',{type:'text'}))),
       S.formErr&&!S.editing&&!S.newInc?el('p',{class:'err',text:S.formErr}):null,
       el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:saveKT},[S.busy?'Đang gửi…':'Gửi nhật ký']) ])); }
