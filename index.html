@@ -154,6 +154,10 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     editing:null, busy:false, formErr:null, newInc:null, leave:null, bv:null, post:'', rcv:null, kt:null, vs:null, toast:null};
   var app = document.getElementById('app');
   var PATROL = ['20h','23h','02h','04h','06h'];
+  // Mã QR dán theo vị trí: mỗi lần quét đều bắt đầu ở màn hình chọn tên, chỉ hiện tên của bộ phận đó
+  var QR={ bot:{dept:'Bảo vệ',posts:['Bốt','Ca đêm'],label:'Bốt'}, ham:{dept:'Bảo vệ',posts:['Hầm'],label:'Hầm'},
+    san:{dept:'Bảo vệ',posts:['Sân'],label:'Đánh xe trên sân',pre:'Nguyễn Mạnh Hùng'}, tapvu:{dept:'Tạp vụ',label:'Tạp vụ'} };
+  var NOI=(function(){ try{ var v=(new URLSearchParams(location.search).get('noi')||'').toLowerCase(); return QR[v]?v:''; }catch(e){ return ''; } })();
 
   // ---------- tiện ích ----------
   function el(tag,a,kids){ var n=document.createElement(tag);
@@ -269,7 +273,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       if(bad.length) it.push({l:'alert',t:bad.length+' hệ thống không bình thường',d:bad.map(function(s){return s[1]+': '+(day.kt.systems[s[0]]||'chưa có');}).join('; '),go:'kythuat'}); }
     var f=[]; day.ca.forEach(function(r){ (r.fails||[]).forEach(function(x){ f.push(r.post+' ca '+r.shift.toLowerCase()+': '+x.item); }); });
     if(f.length) it.push({l:'alert',t:f.length+' ca trực có việc cần báo',d:f.join('; '),go:'baove'});
-    var pm=nightMissing(day); if(pm) it.push({l:'alert',t:'Tuần tra ca đêm chưa đủ mốc',d:'Thiếu mốc '+pm.join(', ')+' (đã gộp mốc của cả 2 người)',go:'baove'});
     var vs=day.vs.filter(function(r){return (r.notDone||[]).length;});
     if(vs.length) it.push({l:'watch',t:'Vệ sinh còn việc chưa làm',d:vs.map(function(r){return r.staff+': '+r.notDone.join(', ')+(r.reason?' ('+r.reason+')':'');}).join('; '),go:'tapvu'});
     return it;
@@ -494,7 +497,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
 
   function vSec(){ var day=curDay(), o=top(); o.push(chips()); if(!day) return o;
     if(S.role==='bv'){
-      var P=BV_POSTS; if(!S.post) S.post=load('svi_post')||''; if(P.indexOf(S.post)<0) S.post='';
+      var P=NOI&&QR[NOI].posts?QR[NOI].posts:BV_POSTS; if(!S.post) S.post=NOI?'':(load('svi_post')||''); if(P.indexOf(S.post)<0) S.post='';
+      if(!S.post&&NOI) S.post=P.length===1?P[0]:((hhmm()>='06:00'&&hhmm()<'18:00')?'Bốt':'Ca đêm');
       o.push(el('div',{class:'form',style:'margin-bottom:14px'},[ el('span',{class:'fl',text:'Vị trí trực của tôi'}),
         el('div',{class:'seg',role:'group','aria-label':'Vị trí trực'},P.map(function(x){ return el('button',{type:'button',class:'ok','aria-pressed':String(S.post===x),onclick:function(){ S.post=x; store('svi_post',x); S.bv=null; render(); }},[postLabel(x)]); })) ]));
       if(S.post) o.push(bvForm());
@@ -503,8 +507,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       return o;
     }
     o.push(coverCards(coverage(day).filter(function(x){return x.code==='BV';})));
-    var nm=nightMissing(day), hasNight=day.ca.some(function(r){return r.shift==='Đêm';});
-    if(hasNight) o.push(el('p',{class:'small',style:'margin:10px 0 0;color:var('+(nm?'--alert':'--ok')+')',text:nm?'Tuần tra ca đêm (gộp 2 người): thiếu mốc '+nm.join(', '):'Tuần tra ca đêm (gộp 2 người): đủ các mốc'}));
     o.push(el('h2',{text:'Báo cáo ca'}));
     var rows=day.ca.slice().sort(function(a,b){ return String(a.at||'').localeCompare(String(b.at||'')); });
     o.push(rows.length?el('div',{class:'list'},rows.map(caCard)):empty('Chưa có báo cáo ca nào.'));
@@ -513,14 +515,12 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     return el('article',{class:'card l-'+l},[ el('div',{class:'card-top'},[ el('h3',{text:caLabel(r)}), el('span',{class:'pill '+(l==='ok'?'ok':l),text:fl.length?'Có việc cần báo':'Bình thường'}) ]),
       el('div',{class:'meta',text:[r.staff,r.time,r.source&&r.source!=='Trang'?'form cũ '+r.source:''].filter(Boolean).join(' – ')}),
       fl.length?el('div',null,fl.map(function(x){ return el('p',null,[el('b',{text:x.item+': '}),x.note||'']); })):null,
-      r.shift==='Đêm'&&r.patrol?el('div',{class:'patrol'},[el('span',{class:'small muted',style:'margin-right:4px',text:'Mốc đã đi:'})].concat(PATROL.filter(function(p){ return r.patrol.indexOf(p)>=0; }).map(function(p){ return el('span',{class:'pt y',text:p}); }))):null,
       !blank(r.events)&&!fl.length?el('p',null,[el('b',{text:'Sự việc: '}),r.events]):null,
       r.code?el('p',{class:'small muted',text:'Đã chuyển kỹ thuật: '+r.code}):null ]); }
   function bvItemsFor(post,shift){ var M=D().meta, C=M.bvChecklist||{}; return C[post+'|'+shift]||(post==='Sân'?M.bvItemsSan:M.bvItems); }
   // Báo cáo cuối ca: mặc định bình thường, chỉ báo khi có chuyện
-  var BV_CATS=['Thẻ xe','Xe, ô tô','Tài sản thiếu','Hỏng hóc','Khác'];
+  var BV_CATS=['An ninh / Ban quản lý','Hỏng hóc'];   // Hỏng hóc tự chuyển kỹ thuật; An ninh / BQL chỉ ghi vào báo cáo ca
   // Riêng vị trí Sân (đánh xe trên sân): chỉ có ca ngày, không bàn giao ca sau, lựa chọn riêng
-  var SAN_CATS=['Ô tô đỗ sai, gây cản trở','Chìa khóa ô tô','Thang máy chuyển đồ','Hỏng hóc','Khác'];
   // Vị trí bảo vệ: Bốt, Hầm, Sân đều ca ngày; Ca đêm (2 người, trực bốt + đi tuần) ghi vào Sheet là Bốt – Đêm
   var BV_POSTS=['Bốt','Hầm','Sân','Ca đêm'];
   function postLabel(p){ return p==='Sân'?'Đánh xe trên sân':p==='Ca đêm'?'Ca đêm (trực bốt + đi tuần)':p; }
@@ -528,12 +528,10 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // Mốc tuần tra ca đêm gộp của tất cả người trực đêm; trả về các mốc chưa ai đi (null nếu đủ hoặc chưa có báo cáo đêm)
   function nightMissing(day){ var n=day.ca.filter(function(r){ return r.shift==='Đêm'&&r.patrol; }); if(!n.length) return null;
     var done={}; n.forEach(function(r){ r.patrol.forEach(function(p){ done[p]=1; }); }); var m=PATROL.filter(function(p){ return !done[p]; }); return m.length?m:null; }
-  function bvForm(){ var night=S.post==='Ca đêm', san=S.post==='Sân', CATS=san?SAN_CATS:BV_CATS;
+  function bvForm(){ var night=S.post==='Ca đêm', san=S.post==='Sân', CATS=BV_CATS;
     if(!S.bv){ S.bv={patrol:[], issue:false, cats:[], note:''}; }
     var f=S.bv;
     var kids=[ el('h3',{text:'Báo cáo cuối ca – '+postLabel(S.post)}), el('p',{class:'small muted',text:night?'18h15 – 06h15':'06h30 – 18h30'}) ];
-    if(night) kids.push(el('div',null,[ el('span',{class:'fl',text:'Mốc tuần tra tôi đã đi (bấm chọn)'}), el('div',{class:'seg big',role:'group','aria-label':'Mốc tuần tra'},PATROL.map(function(p){ var on=f.patrol.indexOf(p)>=0;
-      return el('button',{type:'button',class:'ok','aria-pressed':String(on),onclick:function(){ var k=f.patrol.indexOf(p); if(k>=0) f.patrol.splice(k,1); else f.patrol.push(p); f.patrol.sort(function(a,b){return PATROL.indexOf(a)-PATROL.indexOf(b);}); render(); }},[p]); })) ]));
     if(f.issue){
       kids.push(el('div',null,[ el('span',{class:'fl',text:'Có việc gì? (bấm chọn)'}), el('div',{class:'seg big',role:'group','aria-label':'Loại việc'},CATS.map(function(c){ var on=f.cats.indexOf(c)>=0;
         return el('button',{type:'button',class:'watch','aria-pressed':String(on),onclick:function(){ var k=f.cats.indexOf(c); if(k>=0) f.cats.splice(k,1); else f.cats.push(c); render(); }},[c]); })) ]));
@@ -555,14 +553,21 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     var has=function(c){ return issue&&f.cats.indexOf(c)>=0; };
     S.busy=true; S.formErr=null; render();
     var night=S.post==='Ca đêm';
-    api('bv_report',{post:night?'Bốt':S.post,shift:night?'Đêm':'Ngày',staff:S.name,fails:issue?[{item:f.cats.join(', '),note:note}]:[],patrol:night?f.patrol:null,
+    api('bv_report',{post:night?'Bốt':S.post,shift:night?'Đêm':'Ngày',staff:S.name,fails:issue?[{item:f.cats.join(', '),note:note}]:[],patrol:null,
       assets:has('Tài sản thiếu')?note:'Đầy đủ',events:issue?note:'',needTech:has('Hỏng hóc'),handover:'',lift:''}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
       S.bv=null; toast(r.code?'Đã gửi. Hỏng hóc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo ca'); return refresh(); }).catch(netErr); }
 
 
   // ---------- VÀO TRANG ----------
   // Nhân viên: bấm vào tên mình là vào, máy tự nhớ. Chỉ lãnh đạo cần mã PIN.
-  function vLogin(){ if(!S.lg) S.lg={pin:'',name:''}; var st=S.lg, err=S.formErr, kids=[];
+  function vLoginQR(){ var q=QR[NOI], names=staffOf(q.dept);
+    if(!S.lg){ var last=load('svi_name'); S.lg={pin:'',name:names.indexOf(last)>=0?last:(q.pre&&names.indexOf(q.pre)>=0?q.pre:'')}; }
+    var st=S.lg, kids=[ el('h3',{text:'Báo cáo hàng ngày – '+q.label}), el('span',{class:'fl',text:'Bấm vào tên của mình'}) ];
+    kids.push(el('div',{class:'names'},names.map(function(n){ return el('button',{class:'btn name'+(st.name===n?' pri':''),type:'button',onclick:function(){ st.name=n; render(); }},[n]); })));
+    if(S.formErr) kids.push(el('p',{class:'err',text:S.formErr}));
+    kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy||!st.name,onclick:function(){ doLogin(st.name,''); }},[S.busy?'Đang vào…':(st.name?'Vào – '+st.name:'Vào')]));
+    return [el('div',{class:'login'},[ el('div',{class:'form'},kids) ])]; }
+  function vLogin(){ if(NOI) return vLoginQR(); if(!S.lg) S.lg={pin:'',name:''}; var st=S.lg, err=S.formErr, kids=[];
     kids.push(el('h3',{text:'Chọn tên của mình'}));
     var pick=el('select',{'aria-label':'Họ tên'},[el('option',{value:'',text:'– Chọn tên –'})].concat(['Tạp vụ','Bảo vệ','Kỹ thuật'].map(function(g){
       return el('optgroup',{label:g},staffOf(g).map(function(n){ return el('option',{value:n,text:n}); })); })));
@@ -602,8 +607,10 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
 
   // Mở lại trang: tự vào bằng tên hoặc mã đã nhớ
   if(!API_URL){ app.replaceChildren(el('p',{class:'stale',text:'Trang chưa được nối với Apps Script. Mở file index.html, dán URL /exec vào dòng API_URL.'})); return; }
+  try{ if('scrollRestoration' in history) history.scrollRestoration='manual'; }catch(e){} window.scrollTo(0,0);
   var saved=null; try{ saved=JSON.parse(load('svi_cache')||'null'); }catch(e){}
-  if((load('svi_pin')||load('svi_name')) && saved && saved.role && saved.data){
+  if(NOI) render();
+  else if((load('svi_pin')||load('svi_name')) && saved && saved.role && saved.data){
     S.pin=load('svi_pin'); S.name=S.pin?'':load('svi_name'); S.role=saved.role; S.data=saved.data;
     S.tab=tabsOf()[0][0]; S.day=S.data.days[0]&&S.data.days[0].id; render(); refresh();
   }
