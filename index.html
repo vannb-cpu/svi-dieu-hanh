@@ -155,7 +155,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   var PATROL = ['20h','23h','02h','04h','06h'];
   // Mã QR dán theo vị trí: mỗi lần quét đều bắt đầu ở màn hình chọn tên, chỉ hiện tên của bộ phận đó
   var QR={ bot:{dept:'Bảo vệ',posts:['Bốt','Ca đêm'],label:'Bốt'}, ham:{dept:'Bảo vệ',posts:['Hầm'],label:'Hầm'},
-    san:{dept:'Bảo vệ',posts:['Sân'],label:'Đánh xe trên sân',pre:'Nguyễn Mạnh Hùng'}, tapvu:{dept:'Tạp vụ',label:'Tạp vụ'} };
+    san:{dept:'Bảo vệ',posts:['Sân'],label:'Đánh xe trên sân',pre:'Nguyễn Mạnh Hùng'}, tapvu:{dept:'Tạp vụ',label:'Tạp vụ'},
+    baove:{dept:'Bảo vệ',label:'Bảo vệ'}, kythuat:{dept:'Kỹ thuật',label:'Kỹ thuật'} };
   var NOI=(function(){ try{ var v=(new URLSearchParams(location.search).get('noi')||'').toLowerCase(); return QR[v]?v:''; }catch(e){ return ''; } })();
 
   // ---------- tiện ích ----------
@@ -303,7 +304,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     var ok=SYS().filter(function(x){ return lv(s[x[0]])==='ok'; }).length;
     return el('div',null,[ el('p',{class:'small muted',style:'margin-bottom:8px',text:ok+'/'+SYS().length+' hệ thống bình thường'+(day.kt.reporter?' – '+day.kt.reporter+(day.kt.time?' lúc '+day.kt.time:''):'')}),
       el('div',{class:'sysgrid'},SYS().map(function(x){ var t=s[x[0]], l=lv(t);
-        return el('div',{class:'st '+l},[ el('span',{class:'n',text:x[1]}), el('span',{class:'v'},[ el('span',{class:'dot '+l,'aria-hidden':'true'}), SHORT[t]||t||'Chưa có' ]) ]); })) ]); }
+        var sp=sysSplit(t); return el('div',{class:'st '+l},[ el('span',{class:'n',text:x[1]}), el('span',{class:'v'},[ el('span',{class:'dot '+l,'aria-hidden':'true'}), SHORT[sp[0]]||sp[0]||'Chưa có' ]), sp[1]?el('span',{class:'small',text:sp[1]}):null ]); })) ]); }
 
   // ---------- TỔNG QUAN ----------
   function vOverview(){ var day=curDay(), o=top(); o.push(chips());
@@ -472,18 +473,30 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
           !blank(k.done)?el('p',null,[el('b',{text:'Công việc đã làm: '}),k.done]):null, !blank(k.needs)?el('p',null,[el('b',{text:'Vật tư cần mua: '}),k.needs]):null ])])); } }
     return o; }
   function incOfDay(id){ var inc=D().incidents; return {nw:inc.filter(function(i){return String(i.reportedAt).slice(0,10)===id;}), cl:inc.filter(function(i){return String(i.closedAt||'').slice(0,10)===id;})}; }
+  // Giá trị hệ thống dạng "Bất thường - chưa xử lý: mô tả" → tách trạng thái và mô tả lỗi
+  function sysSplit(v){ v=String(v||''); var k=v.indexOf(': '); return k>0?[v.slice(0,k),v.slice(k+2)]:[v,'']; }
   function ktForm(day){
-    if(!S.kt){ var s={}; SYS().forEach(function(x){ s[x[0]]=(day.kt&&day.kt.systems[x[0]])||'Bình thường'; }); S.kt={systems:s,done:day.kt?day.kt.done:'',needs:day.kt?day.kt.needs:''}; }
+    if(!S.kt){ var s={}, nt={}; SYS().forEach(function(x){ var p=sysSplit(day.kt&&day.kt.systems[x[0]]); s[x[0]]=p[0]||'Bình thường'; nt[x[0]]=p[1]; }); S.kt={systems:s,notes:nt,reported:{},done:day.kt?day.kt.done:'',needs:day.kt?day.kt.needs:''}; }
     var f=S.kt, ev=incOfDay(day.id), OPTS=[['Bình thường','ok','Bình thường'],['Bất thường - đã xử lý','watch','Có lỗi, đã xử lý'],['Bất thường - chưa xử lý','alert','Có lỗi, chưa xử lý']];
-    var rows=SYS().map(function(x){ return el('div',{class:'sysrow'},[ el('span',{class:'fl',text:x[1]}), el('div',{class:'seg',role:'group','aria-label':x[1]},OPTS.map(function(op){ return el('button',{type:'button',class:op[1],'aria-pressed':String(f.systems[x[0]]===op[0]),onclick:function(){f.systems[x[0]]=op[0];render();}},[op[2]]); })) ]); });
+    var rows=SYS().map(function(x){ var st=f.systems[x[0]], kids=[ el('span',{class:'fl',text:x[1]}), el('div',{class:'seg',role:'group','aria-label':x[1]},OPTS.map(function(op){ return el('button',{type:'button',class:op[1],'aria-pressed':String(st===op[0]),onclick:function(){f.systems[x[0]]=op[0];render();}},[op[2]]); })) ];
+      if(st!=='Bình thường'){ var n=el('input',{type:'text','aria-label':'Lỗi gì – '+x[1],placeholder:'Lỗi gì? (bắt buộc) VD: mất nguồn tủ điện tầng 7'}); n.value=f.notes[x[0]]||''; n.addEventListener('input',function(){ f.notes[x[0]]=n.value; }); kids.push(n);
+        if(st==='Bất thường - chưa xử lý'){ var cb=el('input',{type:'checkbox'}); cb.checked=!!f.reported[x[0]]; cb.addEventListener('change',function(){ f.reported[x[0]]=cb.checked; render(); });
+          kids.push(el('div',{class:'checks'},[el('label',{style:'font-size:14px'},[cb,'Đã báo sự cố này rồi (không tạo thêm)'])]));
+          if(!f.reported[x[0]]) kids.push(el('p',{class:'small muted',text:'Khi gửi sẽ tự tạo sự cố để theo dõi tới khi xử lý xong.'})); } }
+      return el('div',{class:'sysrow'},kids); });
     var needInc=SYS().filter(function(x){ return f.systems[x[0]]==='Bất thường - chưa xử lý'; });
     return el('div',{class:'form'},[ el('h3',{text:day.kt?'Sửa nhật ký hôm nay':'Nhật ký kỹ thuật hôm nay'}),
       el('p',{class:'small muted',text:'Mặc định tất cả Bình thường, chỉ bấm vào hệ thống có lỗi.'})].concat(rows).concat([
       field('Công việc đã làm, thiết bị đã sửa',bind(f,'done',el('textarea'))), field('Vật tư cần mua / đề xuất',bind(f,'needs',el('input',{type:'text'}))),
       S.formErr&&!S.editing&&!S.newInc?el('p',{class:'err',text:S.formErr}):null,
       el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:saveKT},[S.busy?'Đang gửi…':'Gửi nhật ký']) ])); }
-  function saveKT(){ S.busy=true; S.formErr=null; render();
-    api('kt_log',{systems:S.kt.systems,done:S.kt.done,needs:S.kt.needs,reporter:S.name}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;} S.kt=null; toast('Đã gửi nhật ký kỹ thuật'); return refresh(); }).catch(netErr); }
+  function saveKT(){ var f=S.kt, out={}, inc=[], miss=[];
+    SYS().forEach(function(x){ var st=f.systems[x[0]], n=String(f.notes[x[0]]||'').trim();
+      if(st!=='Bình thường'&&!n) miss.push(x[1]); out[x[0]]=st+(st!=='Bình thường'&&n?': '+n:'');
+      if(st==='Bất thường - chưa xử lý'&&n&&!f.reported[x[0]]) inc.push({key:x[0],note:n}); });
+    if(miss.length){ S.formErr='Ghi lỗi gì cho: '+miss.join(', ')+'.'; render(); return; }
+    S.busy=true; S.formErr=null; render();
+    api('kt_log',{systems:out,newInc:inc,done:f.done,needs:f.needs,reporter:S.name}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;} S.kt=null; toast(inc.length?'Đã gửi nhật ký, đã tạo '+inc.length+' sự cố':'Đã gửi nhật ký kỹ thuật'); return refresh(); }).catch(netErr); }
 
   // ---------- TẠP VỤ ----------
   function vClean(){ var day=curDay(), o=top(); o.push(chips()); if(!day) return o;
@@ -563,6 +576,10 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function bvItemsFor(post,shift){ var M=D().meta, C=M.bvChecklist||{}; return C[post+'|'+shift]||(post==='Sân'?M.bvItemsSan:M.bvItems); }
   // Báo cáo cuối ca: mặc định bình thường, chỉ báo khi có chuyện
   var BV_CATS=['An ninh / Ban quản lý','Hỏng hóc'];   // Hỏng hóc tự chuyển kỹ thuật; An ninh / BQL chỉ ghi vào báo cáo ca
+  var BV_SUB={'An ninh / Ban quản lý':['Người lạ, khả nghi','Mất đồ, tài sản','Va chạm xe','Xe đỗ sai, chắn lối','Khách phàn nàn','Khác'],
+    'Hỏng hóc':['Điện, đèn','Nước, rò rỉ','Thang máy','Cửa, khóa','Camera','Khác']};
+  // Nơi xảy ra theo vị trí trực; Ca đêm đi tuần cả tòa nhà nên có thêm ô chọn tầng
+  var BV_WHERE={'Bốt':['Sân','Bốt'],'Hầm':['Hầm B1','Hầm B2'],'Sân':['Sảnh','Sân'],'Ca đêm':['Hầm B1','Hầm B2','Sảnh','Sân','Bốt']};
   // Riêng vị trí Sân (đánh xe trên sân): chỉ có ca ngày, không bàn giao ca sau, lựa chọn riêng
   // Vị trí bảo vệ: Bốt, Hầm, Sân đều ca ngày; Ca đêm (2 người, trực bốt + đi tuần) ghi vào Sheet là Bốt – Đêm
   var BV_POSTS=['Bốt','Hầm','Sân','Ca đêm'];
@@ -571,46 +588,50 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // Mốc tuần tra ca đêm gộp của tất cả người trực đêm; trả về các mốc chưa ai đi (null nếu đủ hoặc chưa có báo cáo đêm)
   function nightMissing(day){ var n=day.ca.filter(function(r){ return r.shift==='Đêm'&&r.patrol; }); if(!n.length) return null;
     var done={}; n.forEach(function(r){ r.patrol.forEach(function(p){ done[p]=1; }); }); var m=PATROL.filter(function(p){ return !done[p]; }); return m.length?m:null; }
-  function bvForm(){ var night=S.post==='Ca đêm', san=S.post==='Sân', CATS=BV_CATS;
-    if(!S.bv){ S.bv={patrol:[], issue:false, cats:[], note:''}; }
-    var f=S.bv;
+  function bvForm(){ var night=S.post==='Ca đêm';
+    if(!S.bv){ S.bv={issue:false, cat:'', sub:'', where:'', note:''}; }
+    var f=S.bv, seg=function(label,opts,key,cls,after){ return el('div',null,[ el('span',{class:'fl',text:label}), el('div',{class:'seg big',role:'group','aria-label':label},opts.map(function(o){
+      return el('button',{type:'button',class:cls,'aria-pressed':String(f[key]===o),onclick:function(){ f[key]=o; if(after) after(); S.formErr=null; render(); }},[o]); })) ]); };
     var kids=[ el('h3',{text:'Báo cáo cuối ca – '+postLabel(S.post)}), el('p',{class:'small muted',text:night?'18h15 – 06h15':'06h30 – 18h30'}) ];
-    if(f.issue){
-      kids.push(el('div',null,[ el('span',{class:'fl',text:'Có việc gì? (bấm chọn)'}), el('div',{class:'seg big',role:'group','aria-label':'Loại việc'},CATS.map(function(c){ var on=f.cats.indexOf(c)>=0;
-        return el('button',{type:'button',class:'watch','aria-pressed':String(on),onclick:function(){ var k=f.cats.indexOf(c); if(k>=0) f.cats.splice(k,1); else f.cats.push(c); render(); }},[c]); })) ]));
-      kids.push(bind(f,'note',el('input',{type:'text','aria-label':'Ghi ngắn',placeholder:'Ghi ngắn: việc gì, ở đâu'})));
-      if(f.cats.indexOf('Hỏng hóc')>=0) kids.push(el('p',{class:'small muted',text:'Hỏng hóc sẽ tự chuyển cho kỹ thuật.'}));
-    }
-    if(S.formErr&&!S.editing&&!S.newInc) kids.push(el('p',{class:'err',text:S.formErr}));
     if(!f.issue){
-      kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(false); }},[S.busy?'Đang gửi…':'Ca bình thường – Gửi']));
-      kids.push(el('button',{class:'btn warn big',type:'button',disabled:S.busy,onclick:function(){ f.issue=true; S.formErr=null; render(); }},['Sự việc, sự cố trong ca']));
-    } else {
-      kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(true); }},[S.busy?'Đang gửi…':'Gửi báo cáo']));
-      kids.push(el('button',{class:'btn',type:'button',onclick:function(){ f.issue=false; f.cats=[]; f.note=''; S.formErr=null; render(); }},['Quay lại']));
-    }
+      kids.push(el('p',{style:'font-size:17px;font-weight:600;margin-top:4px',text:'Trong ca có việc gì cần báo không?'}));
+      kids.push(el('p',{class:'small muted',text:'Báo để Ban quản lý và kỹ thuật xử lý giúp.'}));
+      if(S.formErr&&!S.editing&&!S.newInc) kids.push(el('p',{class:'err',text:S.formErr}));
+      kids.push(el('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:10px'},[
+        el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(false); }},[S.busy?'Đang gửi…':'Không có – Gửi']),
+        el('button',{class:'btn warn big',type:'button',disabled:S.busy,onclick:function(){ f.issue=true; S.formErr=null; render(); }},['Có, cần báo']) ]));
+      return el('div',{class:'form'},kids); }
+    kids.push(seg('Loại việc',BV_CATS,'cat','watch',function(){ f.sub=''; }));
+    if(f.cat) kids.push(seg(f.cat==='Hỏng hóc'?'Hỏng gì? (tự chuyển kỹ thuật)':'Việc gì?',BV_SUB[f.cat],'sub','watch'));
+    if(f.sub){ var W=BV_WHERE[S.post]||BV_WHERE['Ca đêm'], fl=null;
+      if(night){ fl=el('select',{'aria-label':'Tầng'},[el('option',{value:'',text:'Tầng…'})].concat((D().meta.floors||[]).map(function(t){ return el('option',{value:t,text:t}); })));
+        fl.value=/^Tầng/.test(f.where)?f.where:''; fl.addEventListener('change',function(){ f.where=fl.value; S.formErr=null; render(); }); }
+      kids.push(el('div',null,[ seg('Ở đâu?',W,'where','ok'), fl?el('div',{style:'margin-top:6px;max-width:220px'},[fl]):null ]));
+      kids.push(field(f.sub==='Khác'?'Ghi rõ việc gì (bắt buộc)':'Ghi thêm (nếu cần)',bind(f,'note',el('input',{type:'text','aria-label':'Ghi thêm',placeholder:'VD: xe biển 30A-123, đèn khu C'})))); }
+    if(S.formErr&&!S.editing&&!S.newInc) kids.push(el('p',{class:'err',text:S.formErr}));
+    kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ saveBV(true); }},[S.busy?'Đang gửi…':'Gửi báo cáo']));
+    kids.push(el('button',{class:'btn',type:'button',onclick:function(){ S.bv=null; S.formErr=null; render(); }},['Quay lại']));
     return el('div',{class:'form'},kids); }
-  function saveBV(issue){ var f=S.bv, note=String(f.note||'').trim();
-    if(issue&&!f.cats.length){ S.formErr='Bấm chọn có việc gì.'; render(); return; }
-    if(issue&&!note){ S.formErr='Ghi ngắn việc gì, ở đâu.'; render(); return; }
-    var has=function(c){ return issue&&f.cats.indexOf(c)>=0; };
+  function saveBV(issue){ var f=S.bv, note=String(f.note||'').trim(), night=S.post==='Ca đêm';
+    if(issue){ if(!f.cat){ S.formErr='Chọn loại việc.'; render(); return; } if(!f.sub){ S.formErr='Chọn việc gì.'; render(); return; }
+      if(!f.where){ S.formErr='Chọn ở đâu.'; render(); return; } if(f.sub==='Khác'&&!note){ S.formErr='Ghi rõ việc gì.'; render(); return; } }
+    var txt=issue?f.sub+' – '+f.where+(note?': '+note:''):'';
     S.busy=true; S.formErr=null; render();
-    var night=S.post==='Ca đêm';
-    api('bv_report',{post:night?'Bốt':S.post,shift:night?'Đêm':'Ngày',staff:S.name,fails:issue?[{item:f.cats.join(', '),note:note}]:[],patrol:null,
-      assets:has('Tài sản thiếu')?note:'Đầy đủ',events:issue?note:'',needTech:has('Hỏng hóc'),handover:'',lift:''}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
+    api('bv_report',{post:night?'Bốt':S.post,shift:night?'Đêm':'Ngày',staff:S.name,fails:issue?[{item:f.cat,note:txt}]:[],patrol:null,
+      assets:issue&&f.sub==='Mất đồ, tài sản'?txt:'Đầy đủ',events:txt,needTech:issue&&f.cat==='Hỏng hóc',cat:f.sub,where:f.where,handover:'',lift:''}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
       S.bv=null; toast(r.code?'Đã gửi. Hỏng hóc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo ca'); return refresh(); }).catch(netErr); }
 
 
   // ---------- VÀO TRANG ----------
   // Nhân viên: bấm vào tên mình là vào, máy tự nhớ. Chỉ lãnh đạo cần mã PIN.
   function vLoginQR(){ var q=QR[NOI], names=staffOf(q.dept);
-    if(!S.lg){ var last=load('svi_name'); S.lg={pin:'',name:names.indexOf(last)>=0?last:(q.pre&&names.indexOf(q.pre)>=0?q.pre:'')}; }
+    if(!S.lg){ var last=load('svi_name'); S.lg={pin:'',name:names.indexOf(last)>=0?last:(q.pre&&names.indexOf(q.pre)>=0?q.pre:(names.length===1?names[0]:''))}; }
     var st=S.lg, kids=[ el('h3',{text:'Báo cáo hàng ngày – '+q.label}), el('span',{class:'fl',text:'Bấm vào tên của mình'}) ];
     kids.push(el('div',{class:'names'},names.map(function(n){ return el('button',{class:'btn name'+(st.name===n?' pri':''),type:'button',onclick:function(){ st.name=n; render(); }},[n]); })));
     if(S.formErr) kids.push(el('p',{class:'err',text:S.formErr}));
     kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy||!st.name,onclick:function(){ doLogin(st.name,''); }},[S.busy?'Đang vào…':(st.name?'Vào – '+st.name:'Vào')]));
     return [el('div',{class:'login'},[ el('div',{class:'form'},kids) ])]; }
-  function vLogin(){ if(NOI) return vLoginQR(); if(!S.lg) S.lg={pin:'',name:''}; var st=S.lg, err=S.formErr, kids=[];
+  function vLogin(){ if(NOI) return vLoginQR(); if(!S.lg) S.lg={pin:'',name:load('svi_name')||''}; var st=S.lg, err=S.formErr, kids=[];
     kids.push(el('h3',{text:'Chọn tên của mình'}));
     var pick=el('select',{'aria-label':'Họ tên'},[el('option',{value:'',text:'– Chọn tên –'})].concat(['Tạp vụ','Bảo vệ','Kỹ thuật'].map(function(g){
       return el('optgroup',{label:g},staffOf(g).map(function(n){ return el('option',{value:n,text:n}); })); })));
@@ -618,7 +639,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     kids.push(pick);
     if(err) kids.push(el('p',{class:'err',text:err}));
     kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.name){ S.formErr='Chọn tên trước khi vào.'; render(); return; } doLogin(st.name,''); }},[S.busy?'Đang vào…':'Vào']));
-    kids.push(el('p',{class:'small muted',text:'Lần sau mở trang sẽ tự vào, không phải chọn lại.'}));
     var lead=[ el('h3',{text:'Lãnh đạo'}) ];
     var pin=el('input',{type:'password',inputmode:'numeric',autocomplete:'current-password','aria-label':'Mã PIN lãnh đạo',placeholder:'Mã PIN'});
       pin.value=st.pin; pin.addEventListener('input',function(){ st.pin=pin.value; });
@@ -651,15 +671,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // Mở lại trang: tự vào bằng tên hoặc mã đã nhớ
   if(!API_URL){ app.replaceChildren(el('p',{class:'stale',text:'Trang chưa được nối với Apps Script. Mở file index.html, dán URL /exec vào dòng API_URL.'})); return; }
   try{ if('scrollRestoration' in history) history.scrollRestoration='manual'; }catch(e){} window.scrollTo(0,0);
-  var saved=null; try{ saved=JSON.parse(load('svi_cache')||'null'); }catch(e){}
-  if(NOI) render();
-  else if((load('svi_pin')||load('svi_name')) && saved && saved.role && saved.data){
-    S.pin=load('svi_pin'); S.name=S.pin?'':load('svi_name'); S.role=saved.role; S.data=saved.data;
-    S.tab=tabsOf()[0][0]; S.day=S.data.days[0]&&S.data.days[0].id; render(); refresh();
-  }
-  else if(load('svi_pin')) doLogin('',load('svi_pin'));
-  else if(load('svi_name')) doLogin(load('svi_name'),'');
-  else render();
+  store('svi_pin',null); store('svi_cache',null);   // mỗi lần mở trang đều về màn hình chọn tên, không tự vào
+  render();
   // Bản thật: lấy danh sách tên mới nhất từ Apps Script cho màn hình chọn tên
   (function getNames(n){ api('names').then(function(r){ if(!r.ok) return;
       var changed=JSON.stringify(r.staff)!==JSON.stringify(DEFAULT_STAFF); S.staffList=r.staff;
