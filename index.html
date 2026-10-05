@@ -691,7 +691,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // Bản thật: lấy danh sách tên mới nhất từ Apps Script cho màn hình chọn tên
   (function getNames(n){ api('names').then(function(r){ if(!r.ok) return;
       var changed=JSON.stringify(r.staff)!==JSON.stringify(DEFAULT_STAFF); S.staffList=r.staff;
-      if(changed&&!S.role&&!(S.lg&&S.lg.name)) render(); })
+      if(changed&&!S.role) render(); })   // danh sách mới khác danh sách dự phòng: vẽ lại, tên đang chọn vẫn giữ
     .catch(function(){ if(n<3) setTimeout(function(){ getNames(n+1); }, 2000*n); }); })(1);
 })();
 </script>
