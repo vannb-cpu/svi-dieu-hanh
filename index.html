@@ -202,7 +202,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       .catch(function(){ if(sess!==S.sess) return; S.loading=false; loadingBar(); S.err='Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'; render(); });
   }
   function loadingBar(){ var b=document.getElementById('lbar'); if(S.loading&&S.data&&!S.data.skeleton){ if(!b) document.body.appendChild(el('div',{id:'lbar',class:'lbar',role:'status',text:'Đang cập nhật số mới…'})); } else if(b) b.remove(); }
-  function logout(){ S.mon=null; S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
+  function logout(){ S.sent=null; S.mon=null; S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
 
   // ---------- quy tắc ----------
   function stNorm(s){ s=String(s||'').trim(); return s==='Đã đóng'?'Đã xử lý xong':(!s||s==='Mới')?'Mới báo':s; }
@@ -364,6 +364,21 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
           el('td',{class:a.absent.length?'bad':null,text:a.absent.length?a.absent.length+' ngày ('+a.absent.map(dm).join(', ')+')':'Không'}) ]); })) ])]));
     return o; }
 
+  // ---------- XÁC NHẬN ĐÃ GỬI ----------
+  // Sau khi gửi thành công: thay ô báo cáo bằng khung xác nhận, giữ trên màn hình tới khi bấm "Gửi thêm báo cáo"
+  function sentDone(kind,detail){ S.sent={kind:kind,who:S.name,where:kind==='bv'?postLabel(S.post):'',at:hhmm(),day:dmy(todayId()),detail:detail||''}; window.scrollTo(0,0); }
+  function sentCard(kind){ var x=S.sent; if(!x||x.kind!==kind) return null;
+    return el('div',{class:'card l-ok',style:'background:var(--ok-bg);padding:18px 16px'},[
+      el('p',{style:'font-size:20px;font-weight:700;color:var(--ok)',text:'✅ Đã gửi báo cáo'}),
+      el('p',{style:'font-size:15px;margin-top:4px',text:[x.who,x.where,x.at+' ngày '+x.day].filter(Boolean).join(' – ')}),
+      x.detail?el('p',{class:'small',style:'margin-top:4px',text:x.detail}):null,
+      el('button',{class:'btn big',type:'button',style:'margin-top:12px',onclick:function(){ S.sent=null; render(); }},['Gửi thêm báo cáo']) ]); }
+  function sentToday(kind){ var d=D().days.filter(function(x){ return x.id===todayId(); })[0]; if(!d||!S.name) return null; var t=[];
+    if(kind==='bv') d.ca.forEach(function(r){ if(norm(r.staff)===norm(S.name)&&r.time) t.push(r.time); });
+    if(kind==='vs') d.vs.forEach(function(r){ if(norm(r.staff)===norm(S.name)) t.push('ca '+String(r.shift).toLowerCase()+(r.time?' lúc '+r.time:'')); });
+    if(kind==='kt'&&d.kt&&d.kt.time) t.push(d.kt.time);
+    return t.length?el('p',{class:'small',style:'color:var(--ok);font-weight:600',text:'Hôm nay đã gửi: '+t.join(', ')}):null; }
+
   // ---------- TỔNG HỢP THÁNG (lãnh đạo) ----------
   function monthList(){ var st=(D().meta.startDate||todayId()).slice(0,7), cur=todayId().slice(0,7), out=[], y=Number(cur.slice(0,4)), m=Number(cur.slice(5,7));
     for(var k=0;k<24;k++){ var ym=y+'-'+('0'+m).slice(-2); out.push(ym); if(ym<=st) break; m--; if(!m){ m=12; y--; } } return out; }
@@ -459,7 +474,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
 
   // ---------- KỸ THUẬT ----------
   function vTech(){ var day=curDay(), o=top(); o.push(chips());
-    if(canKT()&&day&&day.id===todayId()) o.push(ktForm(day));
+    if(canKT()&&day&&day.id===todayId()) o.push(sentCard('kt')||ktForm(day));
     o.push(el('h2',{text:'Hệ thống 7 ngày gần nhất'}));
     var ds=D().days.slice(0,7).reverse();
     o.push(el('div',{class:'grid-wrap'},[el('table',{class:'mx'},[ el('thead',null,[el('tr',null,[el('th',{scope:'col',text:'Hệ thống'})].concat(ds.map(function(d){return el('th',{scope:'col',class:d.id===S.day?'sel':null,text:dm(d.id)});})))]),
@@ -485,7 +500,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
           if(!f.reported[x[0]]) kids.push(el('p',{class:'small muted',text:'Khi gửi sẽ tự tạo sự cố để theo dõi tới khi xử lý xong.'})); } }
       return el('div',{class:'sysrow'},kids); });
     var needInc=SYS().filter(function(x){ return f.systems[x[0]]==='Bất thường - chưa xử lý'; });
-    return el('div',{class:'form'},[ el('h3',{text:day.kt?'Sửa nhật ký hôm nay':'Nhật ký kỹ thuật hôm nay'}),
+    return el('div',{class:'form'},[ el('h3',{text:day.kt?'Sửa nhật ký hôm nay':'Nhật ký kỹ thuật hôm nay'}), sentToday('kt'),
       el('p',{class:'small muted',text:'Mặc định tất cả Bình thường, chỉ bấm vào hệ thống có lỗi.'})].concat(rows).concat([
       field('Công việc đã làm, thiết bị đã sửa',bind(f,'done',el('textarea'))), field('Vật tư cần mua / đề xuất',bind(f,'needs',el('input',{type:'text'}))),
       S.formErr&&!S.editing&&!S.newInc?el('p',{class:'err',text:S.formErr}):null,
@@ -496,11 +511,11 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       if(st==='Bất thường - chưa xử lý'&&n&&!f.reported[x[0]]) inc.push({key:x[0],note:n}); });
     if(miss.length){ S.formErr='Ghi lỗi gì cho: '+miss.join(', ')+'.'; render(); return; }
     S.busy=true; S.formErr=null; render();
-    api('kt_log',{systems:out,newInc:inc,done:f.done,needs:f.needs,reporter:S.name}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;} S.kt=null; toast(inc.length?'Đã gửi nhật ký, đã tạo '+inc.length+' sự cố':'Đã gửi nhật ký kỹ thuật'); return refresh(); }).catch(netErr); }
+    api('kt_log',{systems:out,newInc:inc,done:f.done,needs:f.needs,reporter:S.name}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;} S.kt=null; sentDone('kt',inc.length?'Nhật ký kỹ thuật – đã tạo '+inc.length+' sự cố':'Nhật ký kỹ thuật'); render(); return refresh(); }).catch(netErr); }
 
   // ---------- TẠP VỤ ----------
   function vClean(){ var day=curDay(), o=top(); o.push(chips()); if(!day) return o;
-    if(canVS()&&day.id===todayId()) o.push(vsForm());
+    if(canVS()&&day.id===todayId()) o.push(sentCard('vs')||vsForm());
     if(D().skeleton){ o.push(el('p',{class:'small muted',style:'margin-top:12px',text:'Đang tải báo cáo hôm nay…'})); return o; }
     var c=coverage(day).filter(function(x){return x.code==='VS';}); o.push(el('h2',{text:'Báo cáo hết ca ngày '+dmy(day.id)})); o.push(coverCards(c));
     var v=day.vs; o.push(v.length?el('div',{class:'list',style:'margin-top:10px'},v.map(function(r){ var tot=D().meta.vsItems.length, nd=r.notDone||[], dn=tot-nd.length, fd=!blank(r.found);
@@ -527,7 +542,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       cb.addEventListener('change',function(){ var k=f.notDone.indexOf(it); if(!cb.checked&&k<0) f.notDone.push(it); if(cb.checked&&k>=0) f.notDone.splice(k,1); render(); });
       return el('label',null,[cb,it]); }));
     var fa=bind(f,'foundArea',el('select',{'aria-label':'Tầng phát hiện hỏng'},[el('option',{value:'',text:'– Chọn tầng –'})].concat((D().meta.floors||[]).map(function(t){return el('option',{value:t,text:t});}))));
-    var kids=[ el('h3',{text:'Báo cáo hết ca vệ sinh'}), S.role==='vs'?null:field('Nhân viên',sel),
+    var kids=[ el('h3',{text:'Báo cáo hết ca vệ sinh'}), sentToday('vs'), S.role==='vs'?null:field('Nhân viên',sel),
       el('div',null,[el('span',{class:'fl',text:'Ca'}),shift]),
       el('div',null,[el('span',{class:'fl',text:'Tầng phụ trách hôm nay (tự nhớ theo lần trước)'}),fbox, el('p',{class:'small muted',style:'margin-top:6px',text:floors?'Đã chọn: '+floors:'Chưa chọn tầng nào'})]),
       el('div',null,[el('span',{class:'fl',text:'Việc đã làm (bỏ tích việc chưa làm được)'}),list]),
@@ -545,7 +560,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(String(f.found).trim()&&!f.foundArea){ S.formErr='Chọn tầng nơi phát hiện hỏng.'; render(); return; }
     S.busy=true; S.formErr=null; render();
     api('vs_report',{staff:f.staff,shift:f.shift,floors:floors,notDone:f.notDone,reason:f.notDone.length?f.reason:'',supplies:f.supplies,found:f.found,foundArea:f.foundArea}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
-      S.vs=null; toast(r.code?'Đã gửi. Hỏng hóc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo hết ca'); return refresh(); }).catch(netErr); }
+      S.vs=null; sentDone('vs','Ca '+String(f.shift).toLowerCase()+' – '+floors+(f.notDone.length?' – chưa làm: '+f.notDone.join(', '):'')+(r.code?' – hỏng hóc đã chuyển kỹ thuật':'')); render(); return refresh(); }).catch(netErr); }
 
   // ---------- BẢO VỆ ----------
   // Bàn giao chưa nhận = báo cáo mới nhất của vị trí đó mà chưa ai bấm "Đã nhận ca"
@@ -557,9 +572,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       if(!S.post&&NOI) S.post=P.length===1?P[0]:((hhmm()>='06:00'&&hhmm()<'18:00')?'Bốt':'Ca đêm');
       o.push(el('div',{class:'form',style:'margin-bottom:14px'},[ el('span',{class:'fl',text:'Vị trí trực của tôi'}),
         el('div',{class:'seg',role:'group','aria-label':'Vị trí trực'},P.map(function(x){ return el('button',{type:'button',class:'ok','aria-pressed':String(S.post===x),onclick:function(){ S.post=x; store('svi_post',x); S.bv=null; render(); }},[postLabel(x)]); })) ]));
-      if(S.post) o.push(bvForm());
-      if(S.newInc) o.push(el('div',{style:'margin-top:14px'},[newIncForm()]));
-      else o.push(el('div',{style:'margin-top:14px'},[el('button',{class:'btn big',type:'button',onclick:function(){ S.newInc={category:'',area:S.post||'',severity:'Bình thường',desc:'',handling:''}; S.formErr=null; render(); }},['+ Báo sự cố khẩn (không chờ hết ca)'])]));
+      if(S.post) o.push(sentCard('bv')||bvForm());
       return o;
     }
     o.push(coverCards(coverage(day).filter(function(x){return x.code==='BV';})));
@@ -592,7 +605,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!S.bv){ S.bv={issue:false, cat:'', sub:'', where:'', note:''}; }
     var f=S.bv, seg=function(label,opts,key,cls,after){ return el('div',null,[ el('span',{class:'fl',text:label}), el('div',{class:'seg big',role:'group','aria-label':label},opts.map(function(o){
       return el('button',{type:'button',class:cls,'aria-pressed':String(f[key]===o),onclick:function(){ f[key]=o; if(after) after(); S.formErr=null; render(); }},[o]); })) ]); };
-    var kids=[ el('h3',{text:'Báo cáo cuối ca – '+postLabel(S.post)}), el('p',{class:'small muted',text:night?'18h15 – 06h15':'06h30 – 18h30'}) ];
+    var kids=[ el('h3',{text:'Báo cáo cuối ca – '+postLabel(S.post)}), el('p',{class:'small muted',text:night?'18h15 – 06h15':'06h30 – 18h30'}), sentToday('bv') ];
     if(!f.issue){
       kids.push(el('p',{style:'font-size:17px;font-weight:600;margin-top:4px',text:'Trong ca có việc gì cần báo không?'}));
       kids.push(el('p',{class:'small muted',text:'Báo để Ban quản lý và kỹ thuật xử lý giúp.'}));
@@ -619,7 +632,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     S.busy=true; S.formErr=null; render();
     api('bv_report',{post:night?'Bốt':S.post,shift:night?'Đêm':'Ngày',staff:S.name,fails:issue?[{item:f.cat,note:txt}]:[],patrol:null,
       assets:issue&&f.sub==='Mất đồ, tài sản'?txt:'Đầy đủ',events:txt,needTech:issue&&f.cat==='Hỏng hóc',cat:f.sub,where:f.where,handover:'',lift:''}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
-      S.bv=null; toast(r.code?'Đã gửi. Hỏng hóc đã chuyển kỹ thuật ('+r.code+')':'Đã gửi báo cáo ca'); return refresh(); }).catch(netErr); }
+      S.bv=null; sentDone('bv',issue?(f.cat+': '+txt+(r.code?' (đã chuyển kỹ thuật)':'')):'Không có việc cần báo'); render(); return refresh(); }).catch(netErr); }
 
 
   // ---------- VÀO TRANG ----------
