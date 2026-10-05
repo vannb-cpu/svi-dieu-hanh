@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SVI 169NNV – Điều hành tòa nhà</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
@@ -9,12 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 --bg:#EDF0F1;--surface:#FFF;--ink:#14232B;--muted:#5B6B73;--line:#D8DFE2;--ok:#2E7D5B;--watch:#A86C12;--alert:#C0392B;--accent:#1F5F7A;
 --ok-bg:#E3F1EA;--watch-bg:#F8ECD3;--alert-bg:#F8DEDA;--accent-bg:#DCEBF1;--panel:#15242C;--panel-ink:#E8EEF0;--panel-muted:#9AAEB6;--panel-line:#2A3B44;
 --lamp-ok:#4CD39A;--lamp-watch:#F0B44C;--lamp-alert:#FF7A69;}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E171C;--surface:#16232A;--ink:#E6EDEF;--muted:#93A5AD;--line:#2A3A42;--ok:#4CB98A;--watch:#E0A94A;--alert:#EE7B6C;--accent:#6FB4CE;--ok-bg:#173A2D;--watch-bg:#3C2E12;--alert-bg:#432019;--accent-bg:#17323D;--panel:#0A1419;--panel-line:#22323A;}}
-:root[data-theme="dark"]{--bg:#0E171C;--surface:#16232A;--ink:#E6EDEF;--muted:#93A5AD;--line:#2A3A42;--ok:#4CB98A;--watch:#E0A94A;--alert:#EE7B6C;--accent:#6FB4CE;--ok-bg:#173A2D;--watch-bg:#3C2E12;--alert-bg:#432019;--accent-bg:#17323D;--panel:#0A1419;--panel-line:#22323A;}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 110px);}
 *,*::before,*::after{box-sizing:inherit;}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%;}
@@ -154,6 +153,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     editing:null, busy:false, formErr:null, newInc:null, leave:null, bv:null, post:'', rcv:null, kt:null, vs:null, toast:null};
   var app = document.getElementById('app');
   var PATROL = ['20h','23h','02h','04h','06h'];
+  // Chạy trong Apps Script = trang lãnh đạo (đã đăng nhập tài khoản công ty); chạy trên GitHub = trang nhân viên
+  var GAS = !!(typeof google!=='undefined' && google.script && google.script.run);
   // Mã QR dán theo vị trí: mỗi lần quét đều bắt đầu ở màn hình chọn tên, chỉ hiện tên của bộ phận đó
   var QR={ bot:{dept:'Bảo vệ',posts:['Bốt','Ca đêm'],label:'Bốt'}, ham:{dept:'Bảo vệ',posts:['Hầm'],label:'Hầm'},
     san:{dept:'Bảo vệ',posts:['Sân'],label:'Đánh xe trên sân',pre:'Nguyễn Mạnh Hùng'}, tapvu:{dept:'Tạp vụ',label:'Tạp vụ'} };
@@ -188,6 +189,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // ---------- gọi Apps Script ----------
   function api(action, extra){
     var body = Object.assign({action:action, pin:S.pin, name:S.name}, extra||{});
+    if(GAS) return new Promise(function(res,rej){ google.script.run.withSuccessHandler(res).withFailureHandler(rej).apiCall(body); });
     return fetch(API_URL,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)})
       .then(function(r){ return r.json(); });
   }
@@ -195,14 +197,14 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function refresh(){
     S.loading=true; loadingBar(); var sess=S.sess;
     return api('summary').then(function(r){ if(sess!==S.sess) return; S.loading=false; loadingBar();
-      if(!r.ok){ if(/PIN|danh sách/.test(r.error||'')){ logout(); return; } S.err=r.error; render(); return; }
+      if(!r.ok){ if(!GAS&&/PIN|danh sách/.test(r.error||'')){ logout(); return; } S.err=r.error; render(); return; }
       if(r.role) S.role=r.role;
       S.data=r.data; S.err=null; if(!S.day||!S.data.days.some(function(d){return d.id===S.day;})) S.day=S.data.days[0]&&S.data.days[0].id;
       store('svi_cache',JSON.stringify({role:S.role,data:r.data})); render(); })
       .catch(function(){ if(sess!==S.sess) return; S.loading=false; loadingBar(); S.err='Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'; render(); });
   }
   function loadingBar(){ var b=document.getElementById('lbar'); if(S.loading&&S.data&&!S.data.skeleton){ if(!b) document.body.appendChild(el('div',{id:'lbar',class:'lbar',role:'status',text:'Đang cập nhật số mới…'})); } else if(b) b.remove(); }
-  function logout(){ S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
+  function logout(){ S.mon=null; S.sess=(S.sess||0)+1; S.loading=false; S.busy=false; loadingBar(); S.role=null; S.pin=''; S.name=''; S.data=null; S.full=null; S.vs=null; S.kt=null; S.bv=null; S.post=''; store('svi_post',null); store('svi_pin',null); store('svi_name',null); store('svi_cache',null); render(); }
 
   // ---------- quy tắc ----------
   function stNorm(s){ s=String(s||'').trim(); return s==='Đã đóng'?'Đã xử lý xong':(!s||s==='Mới')?'Mới báo':s; }
@@ -279,8 +281,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   }
 
   // ---------- khung chung ----------
-  var ALLTABS={tongquan:'Tổng quan',suco:'Sự cố',kythuat:'Kỹ thuật',tapvu:'Tạp vụ',baove:'Bảo vệ',nghi:'Lịch nghỉ'};
-  var ROLE_TABS={xem:['tongquan','nghi','suco','kythuat','tapvu','baove'], kt:['suco','kythuat'], vs:['tapvu'], bv:['baove']};
+  var ALLTABS={thang:'Tổng hợp tháng',tongquan:'Tổng quan',suco:'Sự cố',kythuat:'Kỹ thuật',tapvu:'Tạp vụ',baove:'Bảo vệ',nghi:'Lịch nghỉ'};
+  var ROLE_TABS={xem:['tongquan','thang','nghi','suco','kythuat','tapvu','baove'], kt:['suco','kythuat'], vs:['tapvu'], bv:['baove']};
   function tabsOf(){ return (ROLE_TABS[S.role]||[]).map(function(k){ return [k,ALLTABS[k]]; }); }
   function go(t){ S.tab=t; S.editing=null; S.newInc=null; render(); window.scrollTo(0,0); }
   function header(){
@@ -288,6 +290,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!S.role||!S.data){ nav.replaceChildren(); who.replaceChildren(); return; }
     var n=D().incidents.filter(incOpen).length;
     var TABS=tabsOf(); if(TABS.length<2){ nav.replaceChildren(); } else nav.replaceChildren.apply(nav,TABS.map(function(t){ return el('button',{class:'tab',role:'tab','aria-selected':String(S.tab===t[0]),onclick:function(){go(t[0]);}},[t[1],t[0]==='suco'&&n?el('span',{class:'n',text:String(n)}):null]); }));
+    if(GAS){ who.replaceChildren(S.email||'', el('a',{href:'https://accounts.google.com/AccountChooser',target:'_top',style:'margin-left:8px;color:var(--accent)'},['Đổi tài khoản'])); return; }
     var rn={kt:'Kỹ thuật',vs:'Tạp vụ',bv:'Bảo vệ',xem:'Lãnh đạo – xem tổng quát'}[S.role];
     who.replaceChildren((S.name?S.name+' – ':'')+rn, el('button',{type:'button',onclick:logout},[S.role==='xem'?'Thoát':'Không phải tôi']));
   }
@@ -343,7 +346,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!f.from||!f.to||f.to<f.from){ S.formErr='Ngày nghỉ chưa đúng.'; render(); return; }
     S.busy=true; S.formErr=null; render();
     api('leave_new',{dept:f.dept,staff:f.staff,from:f.from,to:f.to,shift:f.shift,reason:f.reason,by:S.name}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
-      S.leave=null; toast('Đã ghi lịch nghỉ'); return refresh(); }).catch(netErr); }
+      S.leave=null; S.mon=null; toast('Đã ghi lịch nghỉ'); return refresh(); }).catch(netErr); }
 
   function vLeave(){ var o=top(), t=todayId(), all=(D().leaves||[]).slice().sort(function(x,y){ return String(x.from).localeCompare(String(y.from)); });
     o.push(leaveButton());
@@ -362,6 +365,50 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
           el('td',{class:over?'bad':null,text:a.quota!=null?a.leave+' / '+a.quota+' ngày':(a.leave?a.leave+' ngày':'–')}),
           el('td',{text:a.other?a.other+' ngày':'–'}),
           el('td',{class:a.absent.length?'bad':null,text:a.absent.length?a.absent.length+' ngày ('+a.absent.map(dm).join(', ')+')':'Không'}) ]); })) ])]));
+    return o; }
+
+  // ---------- TỔNG HỢP THÁNG (lãnh đạo) ----------
+  function monthList(){ var st=(D().meta.startDate||todayId()).slice(0,7), cur=todayId().slice(0,7), out=[], y=Number(cur.slice(0,4)), m=Number(cur.slice(5,7));
+    for(var k=0;k<24;k++){ var ym=y+'-'+('0'+m).slice(-2); out.push(ym); if(ym<=st) break; m--; if(!m){ m=12; y--; } } return out; }
+  function loadMonth(ym){ S.mon=S.mon||{}; if(S.mon[ym]&&S.mon[ym].loading) return;
+    S.mon[ym]={loading:true}; api('month',{ym:ym}).then(function(r){ S.mon[ym]=r.ok?{data:r.data}:{err:r.error||'Chưa tải được'}; render(); })
+      .catch(function(){ S.mon[ym]={err:'Không kết nối được máy chủ.'}; render(); }); }
+  function vMonth(){ var o=top(), list=monthList(); if(!S.ym||list.indexOf(S.ym)<0) S.ym=list[0];
+    var sel=el('select',{'aria-label':'Chọn tháng',style:'max-width:220px'},list.map(function(ym){ return el('option',{value:ym,text:'Tháng '+ym.slice(5)+'/'+ym.slice(0,4)}); }));
+    sel.value=S.ym; sel.addEventListener('change',function(){ S.ym=sel.value; render(); });
+    o.push(el('div',{style:'margin-bottom:14px'},[sel]));
+    var M=S.mon&&S.mon[S.ym];
+    if(!M){ loadMonth(S.ym); o.push(empty('Đang tổng hợp tháng…')); return o; }
+    if(M.loading){ o.push(empty('Đang tổng hợp tháng…')); return o; }
+    if(M.err){ o.push(empty(M.err)); return o; }
+    var d=M.data, inc=d.incidents||[], done=inc.filter(function(i){ return stNorm(i.status)==='Đã xử lý xong'; }), open=inc.length-done.length;
+    var hrsOf=function(i){ var a=new Date(i.reportedAt), b=i.closedAt?new Date(i.closedAt):now(); return (b-a)/36e5; };
+    var avg=done.length?done.reduce(function(t,i){ return t+hrsOf(i); },0)/done.length:0;
+    var avgTxt=!done.length?'–':avg<24?Math.round(avg)+' giờ':(Math.round(avg/24*10)/10).toString().replace('.',',')+' ngày';
+    o.push(el('h2',{text:'Sự cố trong tháng'}));
+    o.push(el('div',{class:'cover'},[ ['Đã báo',inc.length,''],['Đã xử lý xong',done.length,''],['Còn tồn',open,open?' bad':''],['Xử lý trung bình',avgTxt,''] ].map(function(x){
+      return el('div',{class:'cv'+x[2]},[el('div',{class:'k',text:x[0]}),el('div',{class:'v',text:String(x[1])})]); })));
+    function countBy(f){ var m={}; inc.forEach(function(i){ var k=f(i)||'Khác'; m[k]=(m[k]||0)+1; }); return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }).map(function(k){ return [k,m[k]]; }); }
+    var SRC={KT:'Kỹ thuật',VS:'Tạp vụ',BV:'Bảo vệ','KT-03':'Kỹ thuật','AN-03':'Bảo vệ'};
+    function table(title,rows){ return el('div',{class:'grid-wrap',style:'margin-top:10px'},[el('table',{class:'mx att'},[ el('thead',null,[el('tr',null,[el('th',{scope:'col',text:title}),el('th',{scope:'col',text:'Số sự cố'})])]),
+      el('tbody',null,rows.length?rows.map(function(r){ return el('tr',null,[el('th',{scope:'row',text:r[0]}),el('td',{text:String(r[1])})]); }):[el('tr',null,[el('td',{text:'Không có'}),el('td',{text:''})])]) ])]); }
+    if(inc.length){ o.push(table('Theo hạng mục',countBy(function(i){ return i.category; }))); o.push(table('Theo người báo',countBy(function(i){ return SRC[i.source]||i.source; }))); }
+    var lim=(d.overdueH||48), slow=inc.filter(function(i){ return hrsOf(i)>lim; });
+    o.push(el('h2',{text:'Sự cố tồn quá 2 ngày'}));
+    o.push(slow.length?el('div',{class:'list'},slow.map(function(i){ var h=hrsOf(i), st=stNorm(i.status);
+      return el('article',{class:'card l-'+(st==='Đã xử lý xong'?'watch':'alert')},[ el('div',{class:'card-top'},[el('h3',{text:i.area||''}),el('span',{class:'pill '+(st==='Đã xử lý xong'?'ok':'alert'),text:st==='Đã xử lý xong'?'Xử lý xong sau '+String(Math.round(h/24*10)/10).replace('.',',')+' ngày':'Còn tồn '+Math.floor(h/24)+' ngày'})]),
+        el('div',{class:'meta',text:[i.code,dmy(i.reportedAt),i.category].filter(Boolean).join(' – ')}), i.desc?el('p',null,[i.desc]):null ]); })):empty('Không có sự cố nào tồn quá 2 ngày.'));
+    o.push(el('h2',{text:'Lịch nghỉ trong tháng'}));
+    var A=(d.attendance||[]).filter(function(a){ return a.leave||a.other||a.absent.length; });
+    var days=function(l){ return l&&l.length?' ('+l.map(dm).join(', ')+')':''; };
+    o.push(A.length?el('div',{class:'grid-wrap'},[el('table',{class:'mx att'},[
+      el('thead',null,[el('tr',null,['Nhân viên','Nghỉ luân phiên','Nghỉ phép','Ngày không nộp báo cáo'].map(function(h){return el('th',{scope:'col',text:h});}))]),
+      el('tbody',null,A.map(function(a){ var over=a.quota!=null&&a.leave>a.quota;
+        return el('tr',null,[ el('th',{scope:'row'},[a.name, el('span',{class:'small muted',style:'display:block;font-weight:400',text:a.dept})]),
+          el('td',{class:over?'bad':null,text:(a.quota!=null?a.leave+' / '+a.quota+' ngày':(a.leave?a.leave+' ngày':'–'))+days(a.leaveDays)}),
+          el('td',{text:(a.other?a.other+' ngày':'–')+days(a.otherDays)}),
+          el('td',{class:a.absent.length?'bad':null,text:a.absent.length?a.absent.length+' ngày'+days(a.absent):'Không'}) ]); })) ])]):empty('Trong tháng không có ai nghỉ hay thiếu báo cáo.'));
+    o.push(el('p',{class:'small muted',style:'margin-top:8px',text:'Chỉ hiện người có ngày nghỉ hoặc ngày không nộp báo cáo. Nghỉ cố định (Chủ nhật) không tính.'}));
     return o; }
 
   // ---------- SỰ CỐ ----------
@@ -576,11 +623,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(err) kids.push(el('p',{class:'err',text:err}));
     kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.name){ S.formErr='Chọn tên trước khi vào.'; render(); return; } doLogin(st.name,''); }},[S.busy?'Đang vào…':'Vào']));
     kids.push(el('p',{class:'small muted',text:'Lần sau mở trang sẽ tự vào, không phải chọn lại.'}));
-    var lead=[ el('h3',{text:'Lãnh đạo'}) ];
-    var pin=el('input',{type:'password',inputmode:'numeric',autocomplete:'current-password','aria-label':'Mã PIN lãnh đạo',placeholder:'Mã PIN'});
-      pin.value=st.pin; pin.addEventListener('input',function(){ st.pin=pin.value; });
-      lead.push(pin); lead.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.pin.trim()){ S.formErr='Nhập mã PIN lãnh đạo.'; render(); return; } doLogin('',st.pin.trim()); }},['Vào xem tổng quát']));
-    return [el('div',{class:'login'},[ el('div',{class:'form'},kids), el('div',{class:'form',style:'margin-top:14px'},lead) ])]; }
+    return [el('div',{class:'login'},[ el('div',{class:'form'},kids) ])]; }
   // Khung tạm khi chưa có số liệu: đủ để tạp vụ, bảo vệ điền báo cáo ngay
   function skeleton(){ var M=Object.assign({staff:S.staffList||DEFAULT_STAFF, expected:{vs:[]}, deadline:{}, offRules:{}, leaveQuota:{}, overdueH:48, startDate:'9999'}, DEFAULT_META);
     return {days:[{id:todayId(),kt:null,ca:[],vs:[]}], incidents:[], leaves:[], attendance:[], meta:M, skeleton:true}; }
@@ -601,13 +644,17 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!S.role){ app.replaceChildren.apply(app,vLogin()); return; }
     if(!S.data){ app.replaceChildren(el('p',{class:'empty',text:S.err||'Đang tải dữ liệu…'})); return; }
     try{ if(tabsOf().map(function(t){return t[0];}).indexOf(S.tab)<0) S.tab=tabsOf()[0][0];
-    var v={tongquan:vOverview,suco:vIncidents,kythuat:vTech,tapvu:vClean,baove:vSec,nghi:vLeave}[S.tab](); v=v.filter(Boolean); app.replaceChildren.apply(app,v); }
+    var v={tongquan:vOverview,suco:vIncidents,kythuat:vTech,tapvu:vClean,baove:vSec,nghi:vLeave,thang:vMonth}[S.tab](); v=v.filter(Boolean); app.replaceChildren.apply(app,v); }
     catch(e){ console.error(e); app.replaceChildren(el('p',{class:'empty',text:'Lỗi hiển thị: '+e.message})); }
   }
 
   // Mở lại trang: tự vào bằng tên hoặc mã đã nhớ
   if(!API_URL){ app.replaceChildren(el('p',{class:'stale',text:'Trang chưa được nối với Apps Script. Mở file index.html, dán URL /exec vào dòng API_URL.'})); return; }
   try{ if('scrollRestoration' in history) history.scrollRestoration='manual'; }catch(e){} window.scrollTo(0,0);
+  store('svi_pin',null);   // lãnh đạo không dùng mã PIN nữa
+  if(GAS){ S.role='xem'; S.tab='tongquan'; render();
+    api('whoami').then(function(r){ if(r&&r.ok){ S.email=r.email; header(); } });
+    refresh(); return; }
   var saved=null; try{ saved=JSON.parse(load('svi_cache')||'null'); }catch(e){}
   if(NOI) render();
   else if((load('svi_pin')||load('svi_name')) && saved && saved.role && saved.data){
