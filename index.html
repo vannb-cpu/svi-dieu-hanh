@@ -209,6 +209,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function incOpen(i){ return stNorm(i.status)!=='Đã xử lý xong'; }
   function incOver(i){ return incOpen(i)&&hrs(i.reportedAt)>D().meta.overdueH; }
   function incLevel(i){ if(!incOpen(i)) return 'ok'; if(incOver(i)||/nghiêm trọng/i.test(i.severity||'')) return 'alert'; return 'watch'; }
+  // Danh sách theo ngày: gồm cả người đã nghỉ việc nếu ngày đó họ còn làm
+  function staffDay(dept,id){ var M=D().meta, l=(M.staff||{})[dept]||staffOf(dept), E=M.endDate||{}; return l.filter(function(n){ return !E[n]||id<=E[n]; }); }
   function staffOf(dept){ var st=S.staffList||(D()&&D().meta.staff)||DEFAULT_STAFF; return st[dept]||[]; }
   function norm(x){ return String(x||'').toLowerCase().replace(/\s+/g,' ').trim(); }
   function hhmm(){ var z=new Date(now().getTime()+7*36e5); return z.toISOString().slice(11,16); }
@@ -230,13 +232,13 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     function addOff(r,t2){ if(r.off.indexOf(t2)<0) r.off.push(t2); }
     // Bảo vệ: mỗi người 1 báo cáo ca/ngày làm. Hôm nay người chưa nộp có thể đang trực đêm nên chưa tính thiếu
     var bv=box('BV','Báo cáo ca bảo vệ'); bv.pendingLabel='Chưa thấy báo cáo (có thể trực đêm, sáng mai nộp)';
-    staffOf('Bảo vệ').forEach(function(n){ var done=day.ca.some(function(r){ return norm(r.staff)===norm(n); }), why=offReason('Bảo vệ',n,day.id);
+    staffDay('Bảo vệ',day.id).forEach(function(n){ var done=day.ca.some(function(r){ return norm(r.staff)===norm(n); }), why=offReason('Bảo vệ',n,day.id);
       if(!done&&why){ addOff(bv,n+' ('+why+')'); return; } if(!done&&t){ bv.pending.push(n); return; }
       bv.exp++; if(done) bv.got++; else bv.miss.push(n); });
     out.push(bv);
     // Tạp vụ: mỗi người mỗi ca
     var vs=box('VS','Hết ca vệ sinh');
-    E.vs.forEach(function(x){ var who=x[0], shift=x[1];
+    E.vs.forEach(function(x){ var who=x[0], shift=x[1]; if((M.endDate||{})[who]&&day.id>M.endDate[who]) return;
       function doneBy(w){ return day.vs.some(function(r){ return norm(r.staff)===norm(w)&&r.shift===shift; }); }
       var why=offReason('Tạp vụ',who,day.id,shift), l=leaveFor(day.id,who,shift);
       if(!doneBy(who)&&why){ addOff(vs,who+' ('+why+')'); return; }
@@ -245,7 +247,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       vs.exp++; if(done) vs.got++; else vs.miss.push(who+' ca '+shift.toLowerCase()); });
     out.push(vs);
     // Kỹ thuật: 1 nhật ký/ngày
-    var kt=box('KT','Nhật ký kỹ thuật'), kn=staffOf('Kỹ thuật')[0], kw=kn?offReason('Kỹ thuật',kn,day.id):'';
+    var kt=box('KT','Nhật ký kỹ thuật'), kn=staffDay('Kỹ thuật',day.id)[0], kw=kn?offReason('Kỹ thuật',kn,day.id):'';
     if(day.kt){ kt.exp=1; kt.got=1; } else if(kw) kt.off.push(kn+' ('+kw+')'); else if(t&&DL.kt&&tm<DL.kt) kt.pending.push('hạn '+DL.kt); else { kt.exp=1; kt.miss.push('chưa nộp'); }
     out.push(kt);
     return out;
