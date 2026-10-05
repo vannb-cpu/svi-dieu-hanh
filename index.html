@@ -153,8 +153,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     editing:null, busy:false, formErr:null, newInc:null, leave:null, bv:null, post:'', rcv:null, kt:null, vs:null, toast:null};
   var app = document.getElementById('app');
   var PATROL = ['20h','23h','02h','04h','06h'];
-  // Chạy trong Apps Script = trang lãnh đạo (đã đăng nhập tài khoản công ty); chạy trên GitHub = trang nhân viên
-  var GAS = !!(typeof google!=='undefined' && google.script && google.script.run);
   // Mã QR dán theo vị trí: mỗi lần quét đều bắt đầu ở màn hình chọn tên, chỉ hiện tên của bộ phận đó
   var QR={ bot:{dept:'Bảo vệ',posts:['Bốt','Ca đêm'],label:'Bốt'}, ham:{dept:'Bảo vệ',posts:['Hầm'],label:'Hầm'},
     san:{dept:'Bảo vệ',posts:['Sân'],label:'Đánh xe trên sân',pre:'Nguyễn Mạnh Hùng'}, tapvu:{dept:'Tạp vụ',label:'Tạp vụ'} };
@@ -189,7 +187,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // ---------- gọi Apps Script ----------
   function api(action, extra){
     var body = Object.assign({action:action, pin:S.pin, name:S.name}, extra||{});
-    if(GAS) return new Promise(function(res,rej){ google.script.run.withSuccessHandler(res).withFailureHandler(rej).apiCall(body); });
     return fetch(API_URL,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)})
       .then(function(r){ return r.json(); });
   }
@@ -197,7 +194,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   function refresh(){
     S.loading=true; loadingBar(); var sess=S.sess;
     return api('summary').then(function(r){ if(sess!==S.sess) return; S.loading=false; loadingBar();
-      if(!r.ok){ if(!GAS&&/PIN|danh sách/.test(r.error||'')){ logout(); return; } S.err=r.error; render(); return; }
+      if(!r.ok){ if(/PIN|danh sách/.test(r.error||'')){ logout(); return; } S.err=r.error; render(); return; }
       if(r.role) S.role=r.role;
       S.data=r.data; S.err=null; if(!S.day||!S.data.days.some(function(d){return d.id===S.day;})) S.day=S.data.days[0]&&S.data.days[0].id;
       store('svi_cache',JSON.stringify({role:S.role,data:r.data})); render(); })
@@ -290,7 +287,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!S.role||!S.data){ nav.replaceChildren(); who.replaceChildren(); return; }
     var n=D().incidents.filter(incOpen).length;
     var TABS=tabsOf(); if(TABS.length<2){ nav.replaceChildren(); } else nav.replaceChildren.apply(nav,TABS.map(function(t){ return el('button',{class:'tab',role:'tab','aria-selected':String(S.tab===t[0]),onclick:function(){go(t[0]);}},[t[1],t[0]==='suco'&&n?el('span',{class:'n',text:String(n)}):null]); }));
-    if(GAS){ who.replaceChildren(S.email||'', el('a',{href:'https://accounts.google.com/AccountChooser',target:'_top',style:'margin-left:8px;color:var(--accent)'},['Đổi tài khoản'])); return; }
     var rn={kt:'Kỹ thuật',vs:'Tạp vụ',bv:'Bảo vệ',xem:'Lãnh đạo – xem tổng quát'}[S.role];
     who.replaceChildren((S.name?S.name+' – ':'')+rn, el('button',{type:'button',onclick:logout},[S.role==='xem'?'Thoát':'Không phải tôi']));
   }
@@ -623,7 +619,11 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(err) kids.push(el('p',{class:'err',text:err}));
     kids.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.name){ S.formErr='Chọn tên trước khi vào.'; render(); return; } doLogin(st.name,''); }},[S.busy?'Đang vào…':'Vào']));
     kids.push(el('p',{class:'small muted',text:'Lần sau mở trang sẽ tự vào, không phải chọn lại.'}));
-    return [el('div',{class:'login'},[ el('div',{class:'form'},kids) ])]; }
+    var lead=[ el('h3',{text:'Lãnh đạo'}) ];
+    var pin=el('input',{type:'password',inputmode:'numeric',autocomplete:'current-password','aria-label':'Mã PIN lãnh đạo',placeholder:'Mã PIN'});
+      pin.value=st.pin; pin.addEventListener('input',function(){ st.pin=pin.value; });
+      lead.push(pin); lead.push(el('button',{class:'btn pri big',type:'button',disabled:S.busy,onclick:function(){ if(!st.pin.trim()){ S.formErr='Nhập mã PIN lãnh đạo.'; render(); return; } doLogin('',st.pin.trim()); }},['Vào xem tổng quát']));
+    return [el('div',{class:'login'},[ el('div',{class:'form'},kids), el('div',{class:'form',style:'margin-top:14px'},lead) ])]; }
   // Khung tạm khi chưa có số liệu: đủ để tạp vụ, bảo vệ điền báo cáo ngay
   function skeleton(){ var M=Object.assign({staff:S.staffList||DEFAULT_STAFF, expected:{vs:[]}, deadline:{}, offRules:{}, leaveQuota:{}, overdueH:48, startDate:'9999'}, DEFAULT_META);
     return {days:[{id:todayId(),kt:null,ca:[],vs:[]}], incidents:[], leaves:[], attendance:[], meta:M, skeleton:true}; }
@@ -651,10 +651,6 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
   // Mở lại trang: tự vào bằng tên hoặc mã đã nhớ
   if(!API_URL){ app.replaceChildren(el('p',{class:'stale',text:'Trang chưa được nối với Apps Script. Mở file index.html, dán URL /exec vào dòng API_URL.'})); return; }
   try{ if('scrollRestoration' in history) history.scrollRestoration='manual'; }catch(e){} window.scrollTo(0,0);
-  store('svi_pin',null);   // lãnh đạo không dùng mã PIN nữa
-  if(GAS){ S.role='xem'; S.tab='tongquan'; render();
-    api('whoami').then(function(r){ if(r&&r.ok){ S.email=r.email; header(); } });
-    refresh(); return; }
   var saved=null; try{ saved=JSON.parse(load('svi_cache')||'null'); }catch(e){}
   if(NOI) render();
   else if((load('svi_pin')||load('svi_name')) && saved && saved.role && saved.data){
