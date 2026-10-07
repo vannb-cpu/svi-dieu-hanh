@@ -551,8 +551,16 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       f.notDone.length?field('Lý do chưa làm (bắt buộc)',bind(f,'reason',el('input',{type:'text',placeholder:'VD: sàn ướt do mưa, hết giờ'}))):null,
       el('div',{class:'auto'},[ el('b',{text:'Phát hiện hỏng hóc'}), el('p',{class:'small',style:'margin:2px 0 8px',text:'Thấy gì hỏng thì ghi vào đây, kỹ thuật sẽ nhận được ngay. Không có thì để trống.'}),
         el('div',{style:'display:grid;gap:8px'},[ fa, bind(f,'found',el('input',{type:'text',placeholder:'VD: WC nữ hỏng 2 vòi xịt'})) ]) ]),
-      field('Vật tư cần bổ sung (nếu có)',bind(f,'supplies',el('input',{type:'text'}))),
+      field('Vật tư cần bổ sung (nếu có)',bind(f,'supplies',el('input',{type:'text',placeholder:'VD: giấy vệ sinh, nước lau sàn, túi rác'}))),
       S.formErr&&!S.editing&&!S.newInc?el('p',{class:'err',text:S.formErr}):null,
+      f.ask?el('div',{class:'card l-watch',style:'background:var(--watch-bg)'},[
+        el('p',{style:'font-weight:600;font-size:16px',text:'Có phải đây là hỏng hóc cần báo kỹ thuật không?'}),
+        el('p',{class:'small',style:'margin-top:4px',text:'"'+f.supplies+'"'}),
+        el('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px'},[
+          el('button',{class:'btn warn big',type:'button',onclick:function(){ f.found=(String(f.found||'').trim()?f.found+'; ':'')+f.supplies; f.supplies=''; f.ask=false;
+            if(!f.foundArea&&f.floors.length===1) f.foundArea=f.floors[0];
+            if(!f.foundArea){ S.formErr='Đã chuyển sang phần hỏng hóc. Chọn tầng nơi hỏng rồi bấm Gửi báo cáo.'; render(); return; } saveVS(); }},['Đúng, báo kỹ thuật']),
+          el('button',{class:'btn big',type:'button',onclick:function(){ f.ask=false; f.suppliesOk=f.supplies; saveVS(); }},['Không, chỉ là vật tư']) ]) ]):
       el('button',{class:'btn pri big',type:'button',disabled:S.busy||!f.staff,onclick:saveVS},[S.busy?'Đang gửi…':'Gửi báo cáo']) ];
     return el('div',{class:'form'},kids); }
   function saveVS(){ var f=S.vs, floors=f.floors.join(', ');
@@ -560,6 +568,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     if(!f.floors.length){ S.formErr='Chọn ít nhất một tầng.'; render(); return; }
     if(f.notDone.length&&!String(f.reason).trim()){ S.formErr='Có việc chưa làm thì phải ghi lý do.'; render(); return; }
     if(String(f.found).trim()&&!f.foundArea){ S.formErr='Chọn tầng nơi phát hiện hỏng.'; render(); return; }
+    // Ô vật tư có chữ giống hỏng hóc → hỏi lại trước khi gửi
+    if(f.supplies&&f.suppliesOk!==f.supplies&&/hỏng|vỡ|rò|tắc|kẹt|chập|cháy|mất điện|mất nước|nứt|gãy|bung|không sáng|không chạy|không xả|rỉ nước/i.test(f.supplies)){ f.ask=true; S.formErr=null; render(); return; }
     S.busy=true; S.formErr=null; render();
     api('vs_report',{staff:f.staff,shift:f.shift,floors:floors,notDone:f.notDone,reason:f.notDone.length?f.reason:'',supplies:f.supplies,found:f.found,foundArea:f.foundArea}).then(function(r){ S.busy=false; if(!r.ok){S.formErr=r.error;render();return;}
       S.vs=null; sentDone('vs',floors+(f.notDone.length?' – chưa làm: '+f.notDone.join(', '):'')+(r.code?' – hỏng hóc đã chuyển kỹ thuật':'')); render(); return refresh(); }).catch(netErr); }
