@@ -233,9 +233,7 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
     function addOff(r,t2){ if(r.off.indexOf(t2)<0) r.off.push(t2); }
     // Bảo vệ: mỗi người 1 báo cáo ca/ngày làm. Hôm nay người chưa nộp có thể đang trực đêm nên chưa tính thiếu
     var bv=box('BV','Báo cáo ca bảo vệ'); bv.pendingLabel='Chưa thấy báo cáo (có thể trực đêm, sáng mai nộp)';
-    var prevD=D().days.filter(function(x){ return x.id===new Date(Date.parse(day.id+'T12:00:00+07:00')-864e5+7*36e5).toISOString().slice(0,10); })[0];
-    staffDay('Bảo vệ',day.id).forEach(function(n){ var done=day.ca.some(function(r){ return norm(r.staff)===norm(n); }), why=offReason('Bảo vệ',n,day.id)
-        ||(prevD&&prevD.ca.some(function(r){ return norm(r.staff)===norm(n)&&r.shift==='Đêm'; })?'nghỉ sau ca đêm':'');
+    staffDay('Bảo vệ',day.id).forEach(function(n){ var done=day.ca.some(function(r){ return norm(r.staff)===norm(n); }), why=offReason('Bảo vệ',n,day.id);
       if(!done&&why){ addOff(bv,n+' ('+why+')'); return; } if(!done&&t){ bv.pending.push(n); return; }
       bv.exp++; if(done) bv.got++; else bv.miss.push(n); });
     out.push(bv);
@@ -341,8 +339,8 @@ var DEFAULT_META = {"systems":[["bom","Bơm nước sinh hoạt"],["dien","Hệ 
       field('Bộ phận',sel('dept',['Tạp vụ','Bảo vệ','Kỹ thuật'])),
       field('Người nghỉ',sel('staff',[''].concat(staff))),
       el('div',{class:'cover'},[ field('Từ ngày',bind(f,'from',el('input',{type:'date'}))), field('Đến ngày',bind(f,'to',el('input',{type:'date'}))) ]),
-      field('Ca',sel('shift',shifts)), field('Loại nghỉ',sel('reason',['Nghỉ luân phiên','Nghỉ phép'])),
-      el('p',{class:'small muted',text:'Nghỉ luân phiên: trừ vào số ngày được nghỉ trong tháng. Nghỉ phép: nghỉ thêm, tính riêng. Ngày đã ghi nghỉ thì không bị tính là không nộp báo cáo.'}),
+      field('Ca',sel('shift',shifts)), field('Loại nghỉ',sel('reason',f.dept==='Bảo vệ'?['Nghỉ luân phiên','Nghỉ phép','Nghỉ sau ca đêm']:['Nghỉ luân phiên','Nghỉ phép'])),
+      el('p',{class:'small muted',text:'Nghỉ luân phiên: trừ vào số ngày được nghỉ trong tháng. Nghỉ phép: nghỉ thêm, tính riêng. Nghỉ sau ca đêm (bảo vệ): ngày nghỉ đảo ca sau đợt trực đêm, tính riêng. Ngày đã ghi nghỉ thì không bị tính là không nộp báo cáo.'}),
       
       S.formErr?el('p',{class:'err',text:S.formErr}):null,
       el('div',{class:'acts'},[ el('button',{class:'btn pri',type:'button',disabled:S.busy,onclick:saveLeave},[S.busy?'Đang lưu…':'Lưu lịch nghỉ']), el('button',{class:'btn',type:'button',onclick:function(){S.leave=null;S.formErr=null;render();}},['Hủy']) ]) ]); }
